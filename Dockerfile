@@ -1,5 +1,4 @@
-# Use Node.js LTS (Long Term Support) image as base
-FROM node:20-alpine
+FROM node:21-alpine3.19
 
 # Use values from .env file
 ENV PORT=${PORT}
@@ -22,13 +21,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN yarn install
 
 # Copy source code
 COPY . .
 
 # Build it
-RUN npm run build
+RUN yarn build
 
 
 # Expose the port from .env
@@ -36,4 +35,4 @@ EXPOSE ${PORT}
 
 
 # Command to run the application
-CMD ["npm", "run", "start:prod"]
+CMD ["yarn", "start:prod"]
