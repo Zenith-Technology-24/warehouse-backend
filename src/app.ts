@@ -50,6 +50,7 @@ app.use("/api/auth", publicRouter);
 app.use("/api", protectedRouter);
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
+
 // @ts-expect-error atay
 app.use('/docs', swaggerUI.serve, swaggerUI.setup(swaggerDocs));
 

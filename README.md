@@ -25,8 +25,8 @@ To set up this project locally, follow these steps:
 1. **Clone the repository:**
 
     ```bash
-    git clone git@github.com:Zenith-Technology-24/aaa-client.git
-    cd aaa-client
+    git clone git@github.com:Zenith-Technology-24/warehouse-backend.git
+    cd warehouse-backend
     ```
 
 2. **Install dependencies:**

@@ -9,7 +9,8 @@
     "dev": "nodemon src/server.ts",
     "seed:roles": "ts-node src/seeders/role.seeder.ts",
     "seed:superadmin": "ts-node src/seeders/superadmin.seeder.ts",
-    "migrate:fresh": "ts-node src/scripts/migratefresh.script.ts"
+    "migrate:fresh": "ts-node src/scripts/migratefresh.script.ts",
+    "start": "node src/server.ts"
   },
   "keywords": [],
   "author": "",
