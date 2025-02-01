@@ -40,13 +40,22 @@ To set up this project locally, follow these steps:
 Create a `.env` file in the root directory of the project and configure the following environment variables:
 
 ```env
+# Server Configuration
 PORT=3000
+
+# PostgreSQL Configuration
+PG_DB=warehouse
+PG_USER=postgres
+PG_PASSWORD=postgres
 DB_HOST=localhost
-DB_PORT=3306
-DB_USERNAME=root
-DB_PASSWORD=yourpassword
-DB_NAME=yourdatabase
+DB_PORT=5432
+
+# JWT Configuration
 JWT_SECRET=yourjwtsecret
+
+# Mail Configuration
+SMTP_HOST=localhost
+SMTP_PORT=1025
 ```
 
 ## SETUP DATABASE USING DOCKER
@@ -59,11 +68,14 @@ docker-compose up -d
 
 ## RUN SEEDER FOR SUPERADMIN
 
-To generate superadmin user run this command:
+To generate superadmin admin user run this command:
 
 ```bash
 yarn seed:superadmin
 ```
+
+## Accessing PGAdmin
+to access pgadmin locally you can visit `http://localhost:8080`, additionally, the credentials for PGAdmin can be found inside the `docker-compose.yml` file
 
 ## MORE
 
