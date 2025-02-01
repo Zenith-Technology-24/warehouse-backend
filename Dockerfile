@@ -24,9 +24,11 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-RUN npm run build
 # Copy source code
 COPY . .
+
+# Build it
+RUN npm run build
 
 
 # Expose the port from .env
