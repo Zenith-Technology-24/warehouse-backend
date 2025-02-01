@@ -10,6 +10,7 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+RUN npm run build
 # Copy source code
 COPY . .
 
@@ -21,4 +22,4 @@ ENV PORT=3000
 EXPOSE 3000
 
 # Command to run the application
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start:prod"]
