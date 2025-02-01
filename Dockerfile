@@ -14,12 +14,22 @@ RUN npm run build
 # Copy source code
 COPY . .
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
+# Use values from .env file
+ENV PORT=${PORT}
+ENV NODE_ENV=${NODE_ENV}
+ENV PG_DB=${PG_DB}
+ENV PG_USER=${PG_USER}
+ENV PG_PASSWORD=${PG_PASSWORD}
+ENV DB_HOST=${DB_HOST}
+ENV DB_PORT=${DB_PORT}
+ENV JWT_SECRET=${JWT_SECRET}
+ENV SMTP_HOST=${SMTP_HOST}
+ENV SMTP_PORT=${SMTP_PORT}
+ENV DB_URL=${DB_URL}
 
-# Expose the port the app runs on
-EXPOSE 3000
+# Expose the port from .env
+EXPOSE ${PORT}
+
 
 # Command to run the application
 CMD ["npm", "run", "start:prod"]
