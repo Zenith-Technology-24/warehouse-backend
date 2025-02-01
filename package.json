@@ -1,0 +1,44 @@
+{
+  "name": "warehouse",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "dev": "nodemon src/server.ts",
+    "seed:roles": "ts-node src/seeders/role.seeder.ts",
+    "seed:superadmin": "ts-node src/seeders/superadmin.seeder.ts",
+    "migrate:fresh": "ts-node src/scripts/migratefresh.script.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/jsonwebtoken": "^9.0.6",
+    "bcrypt": "^5.1.1",
+    "class-transformer": "^0.5.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.30.1",
+    "mysql2": "^3.11.0",
+    "pg": "^8.12.0",
+    "reflect-metadata": "^0.2.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.2.0",
+    "@types/swagger-jsdoc": "^6.0.4",
+    "@types/swagger-ui-express": "^4.1.7",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
