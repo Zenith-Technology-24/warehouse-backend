@@ -59,7 +59,7 @@ app.use("/api", protectedRouter);
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
 
-// @ts-expect-error atay
+//@ts-expect-error owshii
 app.use('/docs', swaggerUI.serve, swaggerUI.setup(swaggerDocs));
 
 
