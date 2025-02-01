@@ -13,9 +13,6 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Build TypeScript
-RUN npm run typeorm build
-
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
