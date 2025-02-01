@@ -12,6 +12,7 @@ ENV JWT_SECRET=${JWT_SECRET}
 ENV SMTP_HOST=${SMTP_HOST}
 ENV SMTP_PORT=${SMTP_PORT}
 ENV DB_URL=${DB_URL}
+ENV APP_URL=${APP_URL}
 
 
 # Set working directory in container
