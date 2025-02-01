@@ -1,7 +1,6 @@
 import express, { Application } from "express";
 import cors from "cors";
 import helmet from 'helmet';
-import compression from 'compression';
 
 import publicRouter from "./routes/public.routes";
 import protectedRouter from "./routes/protected.routes";
@@ -44,8 +43,6 @@ app.use(
 
 // Add security headers
 app.use(helmet());
-
-app.use(compression);
 
 app.use(express.static('public'));
 
