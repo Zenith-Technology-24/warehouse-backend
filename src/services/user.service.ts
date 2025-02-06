@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { AppDataSource } from '../database/data-source';
 import { User } from '../models/user.entity';
 import * as bcrypt from 'bcrypt';
@@ -9,22 +10,19 @@ export class UserService {
         return await this.userRepository.find();
     }
 
-    async createUser(userData: Partial<User>): Promise<User> {
+    async createUser(userData: Partial<User> & { confirm_password?: string }): Promise<User> {
         
-        if (!userData.email || !userData.password) {
-            throw new Error('Email and password are required');
+        if (!userData.firstname || !userData.lastname || !userData.password) {
+            throw new Error('Firstname, Lastname and Password is required');
         }
 
-        const existingUser = await this.userRepository.findOne({ 
-            where: { email: userData.email } 
-        });
-
-        if (existingUser) {
-            throw new Error('User with this email already exists');
+        if (userData.password !== userData.confirm_password) {
+            throw new Error('Passwords do not match');
         }
 
         const user = this.userRepository.create({
             ...userData,
+            username: `${String(userData.firstname).trim().toLowerCase()}.${String(userData.lastname).trim().toLowerCase()}`
         });
 
         return await this.userRepository.save(user);

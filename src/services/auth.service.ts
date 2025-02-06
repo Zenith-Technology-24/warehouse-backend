@@ -7,7 +7,10 @@ export class AuthService {
   private userRepository = AppDataSource.getRepository(User);
 
   async validateUser(email: string, password: string): Promise<User | null> {
-    const user = await this.userRepository.findOneBy({ email });
+    const user = await this.userRepository.findOne({
+      where: { email },
+      relations: ["roles"],
+    });
     if (user && (await bcrypt.compare(password, user.password))) {
       return user;
     }

@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from 'express';
-import { User } from '../models/user.entity';
 import { UserService } from '../services/user.service';
 
 const userService = new UserService();
@@ -26,7 +26,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
         const users = await userService.getAllUsers();
         res.status(200).json(users);
     } catch (error: any) {
-        res.status(500).json({ message: "Something went wrong" });
+        res.status(500).json({ message: "Something went wrong: " + error });
     }
 };
 

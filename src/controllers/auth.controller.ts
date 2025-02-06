@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service';
 import { plainToInstance } from 'class-transformer';

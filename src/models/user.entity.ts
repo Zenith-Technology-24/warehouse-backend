@@ -14,6 +14,9 @@ export class User {
     @Column()
     firstname!: string;
 
+    @Column({nullable: true})
+    username!: string;
+
     @Column()
     lastname!: string;
 

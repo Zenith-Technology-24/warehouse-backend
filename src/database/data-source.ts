@@ -7,6 +7,7 @@ import { Customer } from "../models/customer.entity";
 import { SalesInventory } from "../models/sales_inventories.entity";
 import { Expense } from "../models/expense.entity";
 import { Role } from "../models/role.entity";
+import { Issuance } from "../models/issuance.entity";
 
 // @ts-expect-error malformed
 const options: DataSourceOptions =
@@ -28,7 +29,16 @@ const options: DataSourceOptions =
 export const AppDataSource = new DataSource({
   // @ts-expect-error malformed
   type: "postgres",
-  entities: [User, Inventory, Sales, Customer, SalesInventory, Expense, Role],
+  entities: [
+    User,
+    Inventory,
+    Sales,
+    Customer,
+    SalesInventory,
+    Expense,
+    Role,
+    Issuance,
+  ],
   synchronize: true,
   logging: true,
   ...options,

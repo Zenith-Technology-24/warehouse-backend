@@ -165,7 +165,10 @@ userRoutes.post('/users', hasRole(['superadmin']), createUser);
  *           type: string
  *           format: password
  *           description: User's password
- *         name:
+ *         firstname:
+ *           type: string
+ *           description: User's full name
+ *         lastname:
  *           type: string
  *           description: User's full name
  *         role:
@@ -197,7 +200,9 @@ userRoutes.post('/users', hasRole(['superadmin']), createUser);
  *         email:
  *           type: string
  *           format: email
- *         name:
+ *         firstname:
+ *           type: string
+ *         lastname:
  *           type: string
  *         role:
  *           type: string
