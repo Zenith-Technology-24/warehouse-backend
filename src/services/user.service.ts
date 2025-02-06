@@ -34,6 +34,11 @@ export class UserService {
         .trim()
         .toLowerCase()}`,
       roles: adminRole ? [adminRole] : [],
+      email: `${String(userData.firstname).trim().toLowerCase()}.${String(
+        userData.lastname
+      )
+        .trim()
+        .toLowerCase()}@wisce.com`
     });
 
     return await this.userRepository.save(user);
