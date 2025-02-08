@@ -15,15 +15,16 @@ export const userGetByIdSchema = z.object({
 });
 
 export const userGetUsersSchema = z.object({
-  page: z.number().optional(),
-  limit: z.number().optional(),
+  page: z.string().optional(),
+  limit: z.string().optional(),
   search: z.string().optional(),
 });
 
 export const userGetUsersResponseSchema = z.object({
-  users: z.array(userSchema),
+  data: z.array(userSchema),
   total: z.number(),
-  pages: z.number(),
+  currentPage: z.number(),
+  totalPages: z.number()
 });
 
 export const userCreateSchema = z.object({

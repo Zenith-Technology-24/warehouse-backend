@@ -82,6 +82,8 @@ model User {
   roles     Role[]
   issuances Issuance[]
   Token     Token?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @default(now()) @map("updated_at")
 
   @@map("user")
 }

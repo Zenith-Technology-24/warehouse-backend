@@ -1,4 +1,3 @@
-import prisma from "@/generic/prisma";
 import { UserService } from "@/services/user.service";
 import { Context } from "hono";
 

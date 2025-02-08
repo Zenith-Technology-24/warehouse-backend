@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/generic/prisma";
+import { UserGetUsersResponse } from "@/schema/user.schema";
 import { Role, User } from "@prisma/client";
 import argon2 from "argon2";
 export class UserService {
@@ -26,7 +28,7 @@ export class UserService {
     page: number = 1,
     pageSize: number = 10,
     search?: string
-  ): Promise<{ users: User[]; total: number; pages: number }> {
+  ): Promise<UserGetUsersResponse> {
     const skip = (page - 1) * pageSize;
 
     const where = search
@@ -45,20 +47,27 @@ export class UserService {
         where: where as any,
         skip,
         take: pageSize,
-        include: {
+        select: {
+          username: true,
           roles: true,
+          email: true,
+          firstname: true,
+          createdAt: true,
+          updatedAt: true
         },
         orderBy: {
           firstname: "asc",
-        },
+        }
       }),
       prisma.user.count({ where: where as any }),
     ]);
 
     return {
-      users,
+      // @ts-expect-error malformed types
+      data: users,
       total,
-      pages: Math.ceil(total / pageSize),
+      currentPage: page,
+      totalPages: Math.ceil(total / pageSize),
     };
   }
 
@@ -107,6 +116,8 @@ export class UserService {
         lastname: true,
         status: true,
         roles: true,
+        createdAt: true,
+        updatedAt: true
       },
     });
   }
@@ -141,6 +152,8 @@ export class UserService {
         lastname: true,
         status: true,
         roles: true,
+        createdAt: true,
+        updatedAt: true
       },
     });
   }

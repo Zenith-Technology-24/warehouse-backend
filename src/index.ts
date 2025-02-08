@@ -43,7 +43,7 @@ api.openapi(
 app.route("/api", api);
 
 app.get(
-  "/docs",
+  "/api/docs",
   swaggerUI({
     url: "/doc",
   })
