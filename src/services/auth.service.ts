@@ -1,43 +1,75 @@
-import { AppDataSource } from "../database/data-source";
-import { User } from "../models/user.entity";
-import * as bcrypt from "bcrypt";
-import * as jwt from "jsonwebtoken";
+import { User, type Token } from "@prisma/client";
+import prisma from "@/generic/prisma";
+import { jwtDecoded } from "@/utils/auth";
 
 export class AuthService {
-  private userRepository = AppDataSource.getRepository(User);
+  async createToken(token: string): Promise<Token> {
+    const tokenParts = token.split(".");
 
-  async validateUser(email: string, password: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({
-      where: { email },
-      relations: ["roles"],
-    });
-    if (user && (await bcrypt.compare(password, user.password))) {
-      return user;
+    if (tokenParts.length !== 3) {
+      throw new Error("Invalid token parts.");
     }
-    return null;
+
+    const secret = tokenParts[tokenParts.length - 1];
+    const userId = jwtDecoded(token);
+
+    const authUser = await prisma.token.create({
+      data: {
+        user: {
+          connect: {
+            id: userId,
+          },
+        },
+        token: secret,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    return authUser;
   }
 
-  async login(user: User): Promise<string> {
-    const payload = {
-      id: user.id,
-      email: user.email,
-      firstname: user.firstname,
-      lastname: user.lastname,
-    };
-    return jwt.sign(payload, process.env.JWT_SECRET as string, {
-      expiresIn: "1h",
+  async getToken(
+    userId: string,
+    token: string
+  ): Promise<(Token & { user: Partial<User> }) | null> {
+    const authUser = await prisma.token.findFirst({
+      where: {
+        userId,
+        token,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            firstname: true,
+            lastname: true,
+            status: true,
+            roles: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    return authUser;
   }
 
-  async getUser(id: number): Promise<User | null> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ["roles"],
+  async deleteToken(userId: string, token: string): Promise<Token | null> {
+    const authUser = await prisma.token.delete({
+      where: {
+        userId,
+        token,
+      },
     });
 
-    if (!user) {
-      return null;
-    }
-    return user;
+    return authUser;
   }
 }

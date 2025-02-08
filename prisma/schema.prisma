@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Expense {
+  id          String   @id @unique @default(uuid())
+  expenseType String   @map("expense_type")
+  amount      Decimal  @db.Decimal(10, 2)
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  description String
+  status      Status   @default(ACTIVE)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("expense")
+}
+
+model Inventory {
+  id          String          @id @unique @default(uuid())
+  productName String          @map("product_name")
+  category    String
+  size        String
+  inStock     Int             @map("in_stock")
+  cost        Decimal         @db.Decimal(10, 2)
+  price       Decimal         @db.Decimal(10, 2)
+  status      InventoryStatus @default(ACTIVE)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  issuances   Issuance[]
+
+  @@map("inventory")
+}
+
+model Issuance {
+  id             String         @id @unique @default(uuid())
+  userId         String         @map("user_id")
+  directiveNo    String         @map("directive_no")
+  issuanceDate   DateTime       @default(now()) @map("issuance_date")
+  expiryDate     DateTime       @map("expiry_date")
+  documentNum    String         @map("document_num")
+  itemName       String         @map("item_name")
+  location       String
+  supplier       String
+  quantity       Int
+  price          Decimal        @db.Decimal(10, 2)
+  amount         Decimal        @db.Decimal(10, 2)
+  size           String?
+  status         IssuanceStatus @default(PENDING)
+  isArchived     Boolean        @default(false) @map("is_archived")
+  user           User           @relation(fields: [userId], references: [id])
+  inventoryItems Inventory[]
+
+  @@map("issuance")
+}
+
+model Role {
+  id          String   @id @unique @default(uuid())
+  name        String   @unique
+  description String?
+  permissions String[]
+  users       User[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  id        String     @id @unique @default(uuid())
+  email     String     @unique
+  firstname String
+  username  String?    @unique
+  lastname  String
+  password  String
+  status    UserStatus @default(ACTIVE)
+  roles     Role[]
+  issuances Issuance[]
+  Token     Token?
+
+  @@map("user")
+}
+
+model Token {
+  id           String    @id @unique @default(uuid())
+  token        String?
+  refreshToken String?
+  resetToken   String?
+  expires_at   DateTime?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String    @unique
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+enum InventoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum IssuanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SalesStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}

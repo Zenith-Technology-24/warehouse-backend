@@ -27,8 +27,6 @@ RUN yarn install
 # Copy source code
 COPY . .
 
-# Build it
-RUN yarn build
 
 
 # Expose the port from .env
