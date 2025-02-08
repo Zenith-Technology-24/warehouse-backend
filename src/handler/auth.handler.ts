@@ -8,13 +8,13 @@ import { AuthService } from "@/services/auth.service";
 
 export const login = async (c: Context) => {
   const data: LoginRequestType = await c.req.json<LoginRequestType>();
-
+  console.log(data);
   const user = await prisma.user.findUnique({
     where: {
-      username: data.username,
+      username: data.username
     },
     include: {
-        roles: true
+      roles: true
     }
   });
 
@@ -33,7 +33,7 @@ export const login = async (c: Context) => {
   return c.json({
     user: {
       ...user,
-      password: undefined
+      password: undefined,
     },
     token,
   });
@@ -46,4 +46,14 @@ export const logout = async (c: Context & { user: User; token: string }) => {
   const encodedSecret = token.split(".")[2];
   new AuthService().deleteToken(userId, encodedSecret);
   return c.json({ message: "Logged out successfully" });
+};
+
+export const session = async (c: Context & { user: User }) => {
+  const user = c.user;
+  return c.json({
+    user: {
+      ...user,
+      password: undefined,
+    },
+  });
 };

@@ -78,6 +78,7 @@ model User {
   username  String?    @unique
   lastname  String
   password  String
+  status    UserStatus @default(ACTIVE)
   roles     Role[]
   issuances Issuance[]
   Token     Token?
@@ -112,6 +113,11 @@ enum IssuanceStatus {
 }
 
 enum SalesStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum UserStatus {
   ACTIVE
   INACTIVE
 }
