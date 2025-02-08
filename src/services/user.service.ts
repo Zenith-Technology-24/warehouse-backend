@@ -5,8 +5,8 @@ import { Role, User } from "@prisma/client";
 import argon2 from "argon2";
 export class UserService {
   // Get user by id
-  async getUserById(id: string): Promise<User | null> {
-    return await prisma.user.findFirst({
+  async getUserById(id: string): Promise<Omit<User, "password"> & { roles: Role[] }> {
+    const user = await prisma.user.findFirst({
       // Get user by username, email or id
       where: {
         OR: [
@@ -21,7 +21,24 @@ export class UserService {
           },
         ],
       },
+      select: {
+        username: true,
+        roles: true,
+        email: true,
+        id: true,
+        firstname: true,
+        lastname: true,
+        createdAt: true,
+        updatedAt: true,
+        status: true,
+      },
     });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    return user;
   }
 
   async getUsers(
@@ -51,13 +68,15 @@ export class UserService {
           username: true,
           roles: true,
           email: true,
+          id: true,
           firstname: true,
           createdAt: true,
-          updatedAt: true
+          updatedAt: true,
+          status: true,
         },
         orderBy: {
-          firstname: "asc",
-        }
+          createdAt: "desc",
+        },
       }),
       prisma.user.count({ where: where as any }),
     ]);
@@ -117,7 +136,7 @@ export class UserService {
         status: true,
         roles: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
       },
     });
   }
@@ -126,6 +145,13 @@ export class UserService {
     id: string,
     data: Partial<User>
   ): Promise<(Omit<User, "password"> & { roles: Role[] }) | null> {
+    const userExists = await prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!userExists) {
+      return null;
+    }
 
     if (data.password) {
       // Hash the password
@@ -134,7 +160,7 @@ export class UserService {
 
     const newData = {
       ...data,
-      role: undefined
+      role: undefined,
     };
 
     return await prisma.user.update({
@@ -151,9 +177,9 @@ export class UserService {
         firstname: true,
         lastname: true,
         status: true,
-        roles: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        roles: true,
       },
     });
   }

@@ -20,7 +20,8 @@ export async function authMiddleware(
 
   try {
     await jwtVerify(_token);
-  } catch (error) {
+  } catch (e) {
+    console.log(e);
     return c.json({ error: "Unauthorized" }, 401);
   }
 

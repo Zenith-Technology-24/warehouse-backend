@@ -8,6 +8,9 @@ export const userSchema = z.object({
   username: z.string().nullable(),
   lastname: z.string(),
   roles: z.array(RoleSchema),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE').optional(),
 });
 
 export const userGetByIdSchema = z.object({
@@ -36,9 +39,10 @@ export const userCreateSchema = z.object({
 });
 
 export const userUpdateSchema = z.object({
-  firstname: z.string(),
-  lastname: z.string(),
+  firstname: z.string().optional(),
+  lastname: z.string().optional(),
   password: z.string().optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE').optional(),
 });
 
 // Create type from schema

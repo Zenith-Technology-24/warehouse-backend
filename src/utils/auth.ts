@@ -1,5 +1,5 @@
 import { sign, verify, decode } from "hono/jwt";
-import type { User } from "@prisma/client";
+import type { Role, User } from "@prisma/client";
 import type { SignatureKey } from "hono/utils/jwt/jws";
 import { AuthService } from "@/services/auth.service";
 import type { JWTPayload } from "hono/utils/jwt/types";
@@ -7,10 +7,11 @@ import prisma from "@/generic/prisma";
 
 const authService = new AuthService();
 
-export const jwtSign = async (user: User): Promise<string | null> => {
+export const jwtSign = async (user: User & {roles: Role[]}): Promise<string | null> => {
   const payload = {
     sub: user.id,
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 1day Expiry
+    roles: user.roles.map((role) => role.name)
   };
   
   // Delete existing token first
