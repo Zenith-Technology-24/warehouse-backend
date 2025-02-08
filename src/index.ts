@@ -3,8 +3,18 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { swaggerUI } from "@hono/swagger-ui";
 import { routes } from "./routes/route";
 import { getRandomMessage } from "./generic/egg";
+import { cors } from "hono/cors";
 const app = new OpenAPIHono();
 const api = new OpenAPIHono(); // Create a new instance for the API routes
+
+app.use(
+  "/api/*",
+  cors({
+    origin: "*",
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"],
+    credentials: true,
+  })
+);
 
 api.openapi(
   createRoute({
