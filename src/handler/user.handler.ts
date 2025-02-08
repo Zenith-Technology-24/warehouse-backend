@@ -14,7 +14,7 @@ export const getUsers = async (c: Context) => {
   return c.json(
     await userService.getUsers(
       parseInt(c.req.query("page") || "1", 10),
-      parseInt(c.req.query("pageSize") || "10", 10),
+      parseInt(c.req.query("limit") || "10", 10),
       c.req.query("search")
     ),
     200

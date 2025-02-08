@@ -16,7 +16,7 @@ export const userGetByIdSchema = z.object({
 
 export const userGetUsersSchema = z.object({
   page: z.number().optional(),
-  pageSize: z.number().optional(),
+  limit: z.number().optional(),
   search: z.string().optional(),
 });
 
