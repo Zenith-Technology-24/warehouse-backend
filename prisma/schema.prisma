@@ -30,7 +30,7 @@ model Inventory {
   price      Decimal         @db.Decimal(10, 2)
   amount     Decimal         @db.Decimal(10, 2)
   size       String?
-  status     InventoryStatus @default(active)
+  status     InventoryStatus @default(pending)
   isArchived Boolean         @default(false) @map("is_archived")
   createdAt  DateTime        @default(now()) @map("created_at")
   updatedAt  DateTime        @updatedAt @map("updated_at")
@@ -114,8 +114,8 @@ enum Status {
 }
 
 enum InventoryStatus {
-  active
-  inactive
+  pending
+  withdrawn
 }
 
 enum IssuanceStatus {
