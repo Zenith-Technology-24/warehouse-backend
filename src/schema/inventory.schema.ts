@@ -8,7 +8,7 @@ export const inventorySchema = z.object({
   quantity: z.number(),
   price: z.number(),
   amount: z.number(),
-  status: z.enum(["WITHDRAWN", "PENDING", "ACTIVE", "INACTIVE"]).default("PENDING"),
+  status: z.enum(["withdrawn", "pending"]).default("pending"),
   size: z.string().nullable(),
   isArchived: z.boolean().optional(),
   createdAt: z.string().optional(),
@@ -22,7 +22,7 @@ export const createInventorySchema = z.object({
   quantity: z.number(),
   price: z.number(),
   amount: z.number(),
-  status: z.enum(["WITHDRAWN", "PENDING", "ACTIVE", "INACTIVE"]).default("PENDING"),
+  status: z.enum(["withdrawn", "pending"]).default("pending"),
   size: z.string().nullable(),
 });
 

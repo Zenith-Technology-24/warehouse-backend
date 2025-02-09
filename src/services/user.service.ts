@@ -70,6 +70,7 @@ export class UserService {
           email: true,
           id: true,
           firstname: true,
+          lastname: true,
           createdAt: true,
           updatedAt: true,
           status: true,

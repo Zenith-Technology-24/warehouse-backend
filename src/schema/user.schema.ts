@@ -10,7 +10,7 @@ export const userSchema = z.object({
   roles: z.array(RoleSchema),
   createdAt: z.date(),
   updatedAt: z.date(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE').optional(),
+  status: z.enum(['active', 'inactive']).default('active').optional(),
 });
 
 export const userGetByIdSchema = z.object({

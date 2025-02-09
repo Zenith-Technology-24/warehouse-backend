@@ -14,7 +14,7 @@ model Expense {
   firstName   String   @map("first_name")
   lastName    String   @map("last_name")
   description String
-  status      Status   @default(ACTIVE)
+  status      Status   @default(active)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -30,7 +30,7 @@ model Inventory {
   price      Decimal         @db.Decimal(10, 2)
   amount     Decimal         @db.Decimal(10, 2)
   size       String?
-  status     InventoryStatus @default(ACTIVE)
+  status     InventoryStatus @default(active)
   isArchived Boolean         @default(false) @map("is_archived")
   createdAt  DateTime        @default(now()) @map("created_at")
   updatedAt  DateTime        @updatedAt @map("updated_at")
@@ -88,7 +88,7 @@ model User {
   username  String?    @unique
   lastname  String
   password  String
-  status    UserStatus @default(ACTIVE)
+  status    UserStatus @default(active)
   roles     Role[]
   issuances Issuance[]
   Token     Token?
@@ -109,26 +109,21 @@ model Token {
 }
 
 enum Status {
-  ACTIVE
-  INACTIVE
+  active
+  inactive
 }
 
 enum InventoryStatus {
-  ACTIVE
-  INACTIVE
+  active
+  inactive
 }
 
 enum IssuanceStatus {
-  PENDING
-  WITHDRAWN
-}
-
-enum SalesStatus {
-  ACTIVE
-  INACTIVE
+  pending
+  withdrawn
 }
 
 enum UserStatus {
-  ACTIVE
-  INACTIVE
+  active
+  inactive
 }
