@@ -1,5 +1,12 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { createIssuanceSchema, getAllIssuancesSchema, getIssuanceBySchema, getIssuanceSchema, issuanceCore, updateIssuanceSchema } from "../issuance.schema";
+import {
+  createIssuanceSchema,
+  getAllIssuancesSchema,
+  getIssuanceBySchema,
+  getIssuanceSchema,
+  issuanceCore,
+  updateIssuanceSchema,
+} from "../issuance.schema";
 
 export const IssuanceRoute = createRoute({
   method: "get",
@@ -37,7 +44,7 @@ export const IssuanceGetByRoute = createRoute({
       description: "Issuance by id",
       content: {
         "application/json": {
-          schema: z.object({...issuanceCore}),
+          schema: z.object({ ...issuanceCore }),
         },
       },
     },
@@ -67,7 +74,7 @@ export const IssuanceCreateRoute = createRoute({
       description: "Issuance created",
       content: {
         "application/json": {
-          schema: z.object({...issuanceCore}),
+          schema: z.object({ ...issuanceCore }),
         },
       },
     },
@@ -98,7 +105,7 @@ export const IssuanceUpdateRoute = createRoute({
       description: "Issuance created",
       content: {
         "application/json": {
-          schema: z.object({...issuanceCore}),
+          schema: z.object({ ...issuanceCore }),
         },
       },
     },

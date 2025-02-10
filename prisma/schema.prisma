@@ -57,6 +57,7 @@ model Issuance {
   issuanceDate   DateTime    @default(now()) @map("issuance_date")
   expiryDate     DateTime    @map("expiry_date")
   documentNum    String      @map("document_num")
+  status     IssuanceStatus @default(pending)
   user           User        @relation(fields: [userId], references: [id])
   inventoryItems Inventory[]
   EndUser        EndUser?    @relation(fields: [endUserId], references: [id])

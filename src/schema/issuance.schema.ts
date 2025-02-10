@@ -17,11 +17,13 @@ export const issuanceCore = {
 
 // Create Issuance Schema
 export const createIssuanceSchema = z.object({
+  status: z.enum(["pending", "withdrawn", 'archived']).default('pending'),
   ...issuanceCore,
 });
 
 // Update Issuance Schema
 export const updateIssuanceSchema = z.object({
+  status: z.enum(["pending", "withdrawn", 'archived']).default('pending'),
   ...issuanceCore,
 });
 
