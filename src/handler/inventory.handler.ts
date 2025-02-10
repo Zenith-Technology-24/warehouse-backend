@@ -14,7 +14,8 @@ export const getInventories = async (c: Context) => {
     await inventoryService.getInventories(
       parseInt(c.req.query("page") || "1", 10),
       parseInt(c.req.query("limit") || "10", 10),
-      c.req.query("search")
+      c.req.query("search"),
+      c.req.query("status")
     ),
     200
   );

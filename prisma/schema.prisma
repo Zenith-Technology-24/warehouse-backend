@@ -30,8 +30,7 @@ model Inventory {
   price      Decimal         @db.Decimal(10, 2)
   amount     Decimal         @db.Decimal(10, 2)
   size       String?
-  status     InventoryStatus @default(pending)
-  isArchived Boolean         @default(false) @map("is_archived")
+  status     InventoryStatus @default(active)
   createdAt  DateTime        @default(now()) @map("created_at")
   updatedAt  DateTime        @updatedAt @map("updated_at")
   issuances  Issuance[]
@@ -58,7 +57,6 @@ model Issuance {
   issuanceDate   DateTime    @default(now()) @map("issuance_date")
   expiryDate     DateTime    @map("expiry_date")
   documentNum    String      @map("document_num")
-  isArchived     Boolean     @default(false) @map("is_archived")
   user           User        @relation(fields: [userId], references: [id])
   inventoryItems Inventory[]
   EndUser        EndUser?    @relation(fields: [endUserId], references: [id])
@@ -114,13 +112,14 @@ enum Status {
 }
 
 enum InventoryStatus {
-  pending
-  withdrawn
+  active
+  archived
 }
 
 enum IssuanceStatus {
   pending
   withdrawn
+  archived
 }
 
 enum UserStatus {

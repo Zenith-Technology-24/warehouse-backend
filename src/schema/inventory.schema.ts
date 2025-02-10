@@ -10,7 +10,6 @@ export const inventorySchema = z.object({
   amount: z.number(),
   status: z.enum(["withdrawn", "pending"]).default("pending"),
   size: z.string().nullable(),
-  isArchived: z.boolean().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
@@ -25,7 +24,6 @@ export const inventoryIssuanceSchema = z.object({
   amount: z.number().optional(),
   status: z.enum(["withdrawn", "pending"]).default("pending"),
   size: z.string().nullable().optional(),
-  isArchived: z.boolean().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
@@ -38,7 +36,7 @@ export const createInventorySchema = z.object({
   quantity: z.number(),
   price: z.number(),
   amount: z.number(),
-  status: z.enum(["withdrawn", "pending"]).default("pending"),
+  status: z.enum(["active", "archived"]).default("active"),
   size: z.string().nullable(),
 });
 
@@ -46,6 +44,7 @@ export const inventoryGetSchema = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
   search: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const inventoryGetByIdSchema = z.object({
@@ -59,7 +58,7 @@ export const updateInventorySchema = z.object({
   quantity: z.number().optional(),
   price: z.number().optional(),
   amount: z.number().optional(),
-  status: z.enum(["WITHDRAWN", "PENDING"]).default("PENDING"),
+  status: z.enum(["active", "archived"]).default("active"),
   size: z.string().nullable().optional(),
 });
 

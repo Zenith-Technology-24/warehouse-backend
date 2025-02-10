@@ -12,7 +12,6 @@ export const issuanceCore = {
   expiry_date: z.string({
     required_error: "Expiry date is required",
   }),
-  is_archived: z.boolean().default(false),
   inventoryItems: z.array(inventoryIssuanceSchema),
 };
 
@@ -38,6 +37,7 @@ export const getAllIssuancesSchema = z.object({
   limit: z.string().optional(),
   page: z.string().optional(),
   search: z.string().optional(),
+  status: z.string().optional(),
 });
 
 // get the response

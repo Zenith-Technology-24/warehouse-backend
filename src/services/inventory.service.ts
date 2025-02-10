@@ -22,14 +22,15 @@ export class InventoryService {
   async getInventories(
     page: number = 1,
     pageSize: number = 10,
-    search?: string
+    search?: string,
+    status?: string
   ): Promise<InventoriesResponseType> {
     const skip = (page - 1) * pageSize;
 
     const where = search
       ? {
           OR: [
-            { item_name: { contains: search, mode: "insensitive" } },
+            { itemName: { contains: search, mode: "insensitive" } },
             { location: { contains: search, mode: "insensitive" } },
             { supplier: { contains: search, mode: "insensitive" } },
           ],
@@ -38,7 +39,7 @@ export class InventoryService {
 
     const [inventories, total] = await Promise.all([
       prisma.inventory.findMany({
-        where: where as never,
+        where: {...where, status} as never,
         skip,
         take: pageSize,
         include: {
@@ -66,7 +67,7 @@ export class InventoryService {
           id,
         },
         data: {
-          isArchived: true,
+          status: 'archived',
         },
       });
 
@@ -83,7 +84,7 @@ export class InventoryService {
           id,
         },
         data: {
-          isArchived: false,
+          status: 'active',
         },
       });
 
@@ -104,8 +105,7 @@ export class InventoryService {
           price: new Decimal(data.price),
           amount: new Decimal(data.amount),
           size: data.size,
-          status: data.status as "pending" | "withdrawn",
-          isArchived: false,
+          status: data.status as "active" | "archived",
         },
       });
 
@@ -129,7 +129,7 @@ export class InventoryService {
           price: data.price ? new Decimal(data.price) : undefined,
           amount: data.amount ? new Decimal(data.amount) : undefined,
           size: data.size,
-          status: data.status as "pending" | "withdrawn",
+          status: data.status as "active" | "archived",
         },
       });
 

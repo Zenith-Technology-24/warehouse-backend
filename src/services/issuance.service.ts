@@ -17,7 +17,6 @@ export class IssuanceService {
           documentNum: issuanceData.document_no,
           issuanceDate: new Date(),
           expiryDate: issuanceData.expiry_date,
-          isArchived: issuanceData.is_archived,
           user: {
             connect: {
               id: user.id,
@@ -36,15 +35,14 @@ export class IssuanceService {
         if (!inventory) {
           inventory = await prisma.inventory.create({
             data: {
-              itemName: item.item_name,
-              location: item.location,
-              supplier: item.supplier,
-              quantity: item.quantity,
-              price: item.price,
-              amount: item.amount,
+              itemName: item.item_name || "No name",
+              location: item.location || "No Location",
+              supplier: item.supplier || "N/A",
+              quantity: item.quantity || 0,
+              price: item.price || "0",
+              amount: item.amount || "0",
               size: item.size,
-              status: (item.status as InventoryStatus) || "PENDING",
-              isArchived: false,
+              status: (item.status as InventoryStatus) || "active",
             },
           });
         }
@@ -88,7 +86,6 @@ export class IssuanceService {
           documentNum: issuanceData.document_no,
           issuanceDate: new Date(),
           expiryDate: issuanceData.expiry_date,
-          isArchived: issuanceData.is_archived,
         },
       });
 
@@ -104,7 +101,7 @@ export class IssuanceService {
 
       // Process each inventory item
       const inventoryPromises = inventoryItems.map(
-        async (item: InventoryType) => {
+        async (item: Partial<InventoryType>) => {
           let inventory = await prisma.inventory.findFirst({
             where: {
               itemName: item.item_name,
@@ -115,15 +112,14 @@ export class IssuanceService {
             // Create new inventory if it doesn't exist
             inventory = await prisma.inventory.create({
               data: {
-                itemName: item.item_name,
-                location: item.location,
-                supplier: item.supplier,
-                quantity: item.quantity,
-                price: item.price,
-                amount: item.amount,
+                itemName: item.item_name || "No name",
+                location: item.location || "No Location",
+                supplier: item.supplier || "N/A",
+                quantity: item.quantity || 0,
+                price: item.price || "0",
+                amount: item.amount || "0",
                 size: item.size,
-                status: (item.status as InventoryStatus) || "PENDING",
-                isArchived: false,
+                status: (item.status as InventoryStatus) || "active",
               },
             });
           } else {
@@ -184,19 +180,22 @@ export class IssuanceService {
   async getIssuances(
     page: number = 1,
     pageSize: number = 10,
-    search?: string
+    search?: string,
+    status?: string
   ): Promise<Issuance> {
     const skip = (page - 1) * pageSize;
 
     const where = search
       ? {
-          OR: [{ directiveNo: { contains: search, mode: "insensitive" } }],
+          OR: [
+            { directiveNo: { contains: search, mode: "insensitive" } },
+          ],
         }
       : {};
 
     const [issuances, total] = await Promise.all([
       prisma.issuance.findMany({
-        where: where as never,
+        where: { ...where, status } as never,
         skip,
         take: pageSize,
         include: {
