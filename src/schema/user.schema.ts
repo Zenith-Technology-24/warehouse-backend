@@ -33,6 +33,7 @@ export const userGetUsersResponseSchema = z.object({
 export const userCreateSchema = z.object({
   firstname: z.string(),
   lastname: z.string(),
+  username: z.string(),
   password: z.string(),
   confirm_password: z.string(),
   role: z.string(),
@@ -41,6 +42,7 @@ export const userCreateSchema = z.object({
 export const userUpdateSchema = z.object({
   firstname: z.string().optional(),
   lastname: z.string().optional(),
+  username: z.string().optional(),
   password: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE').optional(),
 });

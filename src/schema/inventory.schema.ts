@@ -15,6 +15,22 @@ export const inventorySchema = z.object({
   updatedAt: z.string().optional(),
 });
 
+export const inventoryIssuanceSchema = z.object({
+  id: z.string().optional(),
+  item_name: z.string().optional(),
+  location: z.string().optional(),
+  supplier: z.string().optional(),
+  quantity: z.number().optional(),
+  price: z.number().optional(),
+  amount: z.number().optional(),
+  status: z.enum(["withdrawn", "pending"]).default("pending"),
+  size: z.string().nullable().optional(),
+  isArchived: z.boolean().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+
 export const createInventorySchema = z.object({
   item_name: z.string(),
   location: z.string(),

@@ -1,5 +1,5 @@
 import { z } from "@hono/zod-openapi";
-import { inventorySchema } from "./inventory.schema";
+import { inventoryIssuanceSchema } from "./inventory.schema";
 
 // Base schema for common issuance fields
 export const issuanceCore = {
@@ -13,7 +13,7 @@ export const issuanceCore = {
     required_error: "Expiry date is required",
   }),
   is_archived: z.boolean().default(false),
-  inventoryItems: z.array(inventorySchema),
+  inventoryItems: z.array(inventoryIssuanceSchema),
 };
 
 // Create Issuance Schema
@@ -23,9 +23,6 @@ export const createIssuanceSchema = z.object({
 
 // Update Issuance Schema
 export const updateIssuanceSchema = z.object({
-  id: z.string({
-    required_error: "Issuance ID is required",
-  }),
   ...issuanceCore,
 });
 

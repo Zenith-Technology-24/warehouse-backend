@@ -5,7 +5,9 @@ import { Role, User } from "@prisma/client";
 import argon2 from "argon2";
 export class UserService {
   // Get user by id
-  async getUserById(id: string): Promise<Omit<User, "password"> & { roles: Role[] }> {
+  async getUserById(
+    id: string
+  ): Promise<Omit<User, "password"> & { roles: Role[] }> {
     const user = await prisma.user.findFirst({
       // Get user by username, email or id
       where: {
@@ -121,7 +123,7 @@ export class UserService {
       data: {
         ...newData,
         email: `${newData.firstname.toLocaleLowerCase()}.${newData.lastname.toLocaleLowerCase()}@wisce.com`,
-        username: `${newData.firstname.toLocaleLowerCase()}.${newData.lastname.toLocaleLowerCase()}`,
+        username: data.username,
         roles: {
           connect: {
             id: role.id,

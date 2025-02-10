@@ -67,7 +67,6 @@ export class InventoryService {
         },
         data: {
           isArchived: true,
-          status: "INACTIVE",
         },
       });
 
@@ -85,7 +84,6 @@ export class InventoryService {
         },
         data: {
           isArchived: false,
-          status: "ACTIVE",
         },
       });
 
@@ -106,7 +104,7 @@ export class InventoryService {
           price: new Decimal(data.price),
           amount: new Decimal(data.amount),
           size: data.size,
-          status: "ACTIVE",
+          status: data.status as "pending" | "withdrawn",
           isArchived: false,
         },
       });
@@ -131,7 +129,7 @@ export class InventoryService {
           price: data.price ? new Decimal(data.price) : undefined,
           amount: data.amount ? new Decimal(data.amount) : undefined,
           size: data.size,
-          status: data.status as "ACTIVE" | "INACTIVE",
+          status: data.status as "pending" | "withdrawn",
         },
       });
 
