@@ -22,7 +22,7 @@ export const login = async (c: Context) => {
     return c.json({ error: "User not found" }, 404);
   }
 
-  const verify = argon2.verify(user.password, data.password);
+  const verify = await argon2.verify(user.password, data.password);
 
   if (!verify) {
     return c.json({ error: "User not found" }, 404);
