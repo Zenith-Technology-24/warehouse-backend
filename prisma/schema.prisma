@@ -22,20 +22,21 @@ model Expense {
 }
 
 model Inventory {
-  id         String          @id @unique @default(uuid())
-  itemName   String          @map("item_name")
-  location   String
-  supplier   String
-  quantity   Int
-  price      Decimal         @db.Decimal(10, 2)
-  amount     Decimal         @db.Decimal(10, 2)
-  size       String?
-  status     InventoryStatus @default(active)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
-  issuances  Issuance[]
-  EndUser    EndUser?        @relation(fields: [endUserId], references: [id])
-  endUserId  String?
+  id        String          @id @unique @default(uuid())
+  itemName  String          @map("item_name")
+  location  String
+  supplier  String
+  quantity  Int
+  price     Decimal         @db.Decimal(10, 2)
+  amount    Decimal         @db.Decimal(10, 2)
+  size      String?
+  unit      Units           @default(ea)
+  status    InventoryStatus @default(active)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  issuances Issuance[]
+  EndUser   EndUser?        @relation(fields: [endUserId], references: [id])
+  endUserId String?
 
   @@map("inventory")
 }
@@ -51,19 +52,19 @@ model EndUser {
 }
 
 model Issuance {
-  id             String      @id @unique @default(uuid())
-  userId         String      @map("user_id")
-  directiveNo    String      @map("directive_no")
-  issuanceDate   DateTime    @default(now()) @map("issuance_date")
-  expiryDate     DateTime    @map("expiry_date")
-  documentNum    String      @map("document_num")
-  status     IssuanceStatus @default(pending)
-  user           User        @relation(fields: [userId], references: [id])
+  id             String         @id @unique @default(uuid())
+  userId         String         @map("user_id")
+  directiveNo    String         @map("directive_no")
+  issuanceDate   DateTime       @default(now()) @map("issuance_date")
+  expiryDate     DateTime       @map("expiry_date")
+  documentNum    String         @map("document_num")
+  status         IssuanceStatus @default(pending)
+  user           User           @relation(fields: [userId], references: [id])
   inventoryItems Inventory[]
-  EndUser        EndUser?    @relation(fields: [endUserId], references: [id])
+  EndUser        EndUser?       @relation(fields: [endUserId], references: [id])
   endUserId      String?
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
 
   @@map("issuance")
 }
@@ -126,4 +127,10 @@ enum IssuanceStatus {
 enum UserStatus {
   active
   inactive
+}
+
+enum Units {
+  prs
+  ea
+  sets
 }

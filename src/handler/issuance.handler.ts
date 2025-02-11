@@ -1,8 +1,10 @@
+import { InventoryService } from "@/services/inventory.service";
 import { IssuanceService } from "@/services/issuance.service";
 import { User } from "@prisma/client";
 import { Context } from "hono";
 
 const issuanceService = new IssuanceService();
+const inventoryService = new InventoryService();
 
 export const getIssuanceById = async (c: Context) => {
   // Get user by id
@@ -38,3 +40,7 @@ export const updateIssuance = async (c: Context) => {
   const data = await c.req.json();
   return c.json(await issuanceService.updateIssuance(id, data), 201);
 };
+
+export const getInventoryIssuance = async (c: Context) => {
+  return c.json(await inventoryService.inventoryIssuance(), 200);
+}

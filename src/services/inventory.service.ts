@@ -39,7 +39,7 @@ export class InventoryService {
 
     const [inventories, total] = await Promise.all([
       prisma.inventory.findMany({
-        where: {...where, status} as never,
+        where: { ...where, status } as never,
         skip,
         take: pageSize,
         include: {
@@ -67,7 +67,7 @@ export class InventoryService {
           id,
         },
         data: {
-          status: 'archived',
+          status: "archived",
         },
       });
 
@@ -84,7 +84,7 @@ export class InventoryService {
           id,
         },
         data: {
-          status: 'active',
+          status: "active",
         },
       });
 
@@ -145,5 +145,24 @@ export class InventoryService {
         id,
       },
     });
+  }
+
+  async inventoryIssuance() {
+    return {
+      data: await prisma.inventory.findMany({
+        where: {},
+        select: {
+          id: true,
+          itemName: true,
+          quantity: true,
+          amount: true,
+          price: true,
+          size: true,
+          supplier: true,
+          location: true,
+          unit: true,
+        },
+      }),
+    };
   }
 }

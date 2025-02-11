@@ -9,6 +9,7 @@ export const inventorySchema = z.object({
   price: z.number(),
   amount: z.number(),
   status: z.enum(["active", "archived"]).default("active"),
+  unit: z.enum(['prs', 'ea', 'sers']).default('ea'),
   size: z.string().nullable(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
@@ -23,6 +24,7 @@ export const inventoryIssuanceSchema = z.object({
   price: z.number().optional(),
   amount: z.number().optional(),
   status: z.enum(["active", "archived"]).default("active"),
+  unit: z.enum(['prs', 'ea', 'sers']).default('ea'),
   size: z.string().nullable().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
@@ -37,6 +39,7 @@ export const createInventorySchema = z.object({
   price: z.number(),
   amount: z.number(),
   status: z.enum(["active", "archived"]).default("active"),
+  unit: z.enum(['prs', 'ea', 'sers']).default('ea').optional(),
   size: z.string().nullable(),
 });
 
@@ -59,6 +62,7 @@ export const updateInventorySchema = z.object({
   price: z.number().optional(),
   amount: z.number().optional(),
   status: z.enum(["active", "archived"]).default("active"),
+  unit: z.enum(['prs', 'ea', 'sers']).default('ea'),
   size: z.string().nullable().optional(),
 });
 

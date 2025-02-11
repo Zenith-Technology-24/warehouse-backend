@@ -7,6 +7,7 @@ import {
   issuanceCore,
   updateIssuanceSchema,
 } from "../issuance.schema";
+import { inventorySchema } from "../inventory.schema";
 
 export const IssuanceRoute = createRoute({
   method: "get",
@@ -86,6 +87,29 @@ export const IssuanceCreateRoute = createRoute({
   ],
 });
 
+export const IssuanceInventoryRoute = createRoute({
+  method: "get",
+  path: "/inventory",
+  tags: ["Issuance"],
+  responses: {
+    "201": {
+      description: "Issuance created",
+      content: {
+        "application/json": {
+          schema: z.object({
+            data: z.array(inventorySchema)
+          }),
+        },
+      },
+    },
+  },
+  security: [
+    {
+      Bearer: [],
+    },
+  ],
+});
+
 export const IssuanceUpdateRoute = createRoute({
   method: "put",
   path: "/issuances/{id}",
@@ -116,3 +140,5 @@ export const IssuanceUpdateRoute = createRoute({
     },
   ],
 });
+
+
