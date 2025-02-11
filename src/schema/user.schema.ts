@@ -45,7 +45,7 @@ export const userUpdateSchema = z.object({
   lastname: z.string().optional(),
   username: z.string().optional(),
   password: z.string().optional(),
-  status: z.enum(['active', 'intactive']).default('active').optional(),
+  status: z.enum(['active', 'inactive']).default('active').optional(),
 });
 
 // Create type from schema
