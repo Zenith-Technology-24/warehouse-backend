@@ -125,6 +125,7 @@ export class UserService {
         ...data,
         confirm_password: undefined,
         role: undefined,
+        current_password: undefined,
       };
 
       return await prisma.user.create({
