@@ -151,15 +151,7 @@ export class UserService {
         },
       });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError) {
-        // The .code property can be accessed in a type-safe manner
-        if (e.code === "P2002") {
-          return {
-            message: "There is a unique constraint violation",
-          };
-        }
-      }
-      throw e;
+      console.log(e);
     }
   }
 
