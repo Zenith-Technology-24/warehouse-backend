@@ -4,7 +4,7 @@ import { UserGetUsersResponse } from "@/schema/user.schema";
 import { Prisma, Role, User } from "@prisma/client";
 import argon2 from "argon2";
 
-const statusTable: { [key in 'active' | 'deactivated']: string } = {
+const statusTable: { [key in "active" | "deactivated"]: string } = {
   active: "active",
   deactivated: "inactive",
 };
@@ -68,7 +68,10 @@ export class UserService {
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        where: { ...where, status: status ? statusTable[status] : 'active' } as never,
+        where: {
+          ...where,
+          status: status ? statusTable[status] : "active",
+        } as never,
         skip,
         take: pageSize,
         select: {
@@ -125,7 +128,6 @@ export class UserService {
         ...data,
         confirm_password: undefined,
         role: undefined,
-        current_password: undefined,
       };
 
       return await prisma.user.create({
@@ -153,6 +155,7 @@ export class UserService {
       });
     } catch (e) {
       console.log(e);
+      throw e;
     }
   }
 
@@ -184,6 +187,7 @@ export class UserService {
       role: undefined,
       password: data.password ? data.password : undefined,
       confirm_password: undefined,
+      current_password: undefined,
     };
 
     return await prisma.user.update({
