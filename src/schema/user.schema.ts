@@ -21,6 +21,7 @@ export const userGetUsersSchema = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),
   search: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const userGetUsersResponseSchema = z.object({
@@ -44,7 +45,7 @@ export const userUpdateSchema = z.object({
   lastname: z.string().optional(),
   username: z.string().optional(),
   password: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE').optional(),
+  status: z.enum(['active', 'intactive']).default('active').optional(),
 });
 
 // Create type from schema

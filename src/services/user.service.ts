@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/generic/prisma";
 import { UserGetUsersResponse } from "@/schema/user.schema";
-import { Role, User } from "@prisma/client";
+import { Prisma, Role, User } from "@prisma/client";
 import argon2 from "argon2";
 export class UserService {
   // Get user by id
@@ -46,7 +46,8 @@ export class UserService {
   async getUsers(
     page: number = 1,
     pageSize: number = 10,
-    search?: string
+    search?: string,
+    status?: string
   ): Promise<UserGetUsersResponse> {
     const skip = (page - 1) * pageSize;
 
@@ -63,7 +64,7 @@ export class UserService {
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        where: where as any,
+        where: { ...where, status } as any,
         skip,
         take: pageSize,
         select: {
@@ -98,55 +99,71 @@ export class UserService {
       role: string;
       confirm_password: string;
     }
-  ): Promise<Omit<User, "password"> & { roles: Role[] }> {
-    const role = await prisma.role.findUniqueOrThrow({
-      where: {
-        name: data.role,
-      },
-    });
+  ): Promise<Omit<User, "password"> & { roles: Role[] } | { message: string }> {
+    try {
+      const role = await prisma.role.findUniqueOrThrow({
+        where: {
+          name: data.role,
+        },
+      });
 
-    if (data.password !== data.confirm_password) {
-      throw new Error("Password and confirm password do not match");
-    }
+      if (data.password !== data.confirm_password) {
+        throw new Error("Password and confirm password do not match");
+      }
 
-    // Hash the password
-    data.password = await argon2.hash(data.password);
+      // Hash the password
+      data.password = await argon2.hash(data.password);
 
-    // remove confirm_password from the data object
-    const newData = {
-      ...data,
-      confirm_password: undefined,
-      role: undefined,
-    };
+      // remove confirm_password from the data object
+      const newData = {
+        ...data,
+        confirm_password: undefined,
+        role: undefined,
+      };
 
-    return await prisma.user.create({
-      data: {
-        ...newData,
-        email: `${newData.firstname.toLocaleLowerCase()}.${newData.lastname.toLocaleLowerCase()}@wisce.com`,
-        username: data.username,
-        roles: {
-          connect: {
-            id: role.id,
+      return await prisma.user.create({
+        data: {
+          ...newData,
+          email: `${newData.firstname.toLocaleLowerCase()}.${newData.lastname.toLocaleLowerCase()}@wisce.com`,
+          username: data.username,
+          roles: {
+            connect: {
+              id: role.id,
+            },
           },
         },
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        firstname: true,
-        lastname: true,
-        status: true,
-        roles: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          firstname: true,
+          lastname: true,
+          status: true,
+          roles: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError) {
+        // The .code property can be accessed in a type-safe manner
+        if (e.code === 'P2002') {
+
+          return {
+            message: 'There is a unique constraint violation'
+          };
+        }
+      }
+      throw e;
+    }
   }
 
   async updateUser(
     id: string,
-    data: Partial<User>
+    data: Omit<User, "id" | "createdAt" | "updatedAt" | "roles"> & {
+      role: string;
+      confirm_password: string;
+    }
   ): Promise<(Omit<User, "password"> & { roles: Role[] }) | null> {
     const userExists = await prisma.user.findUnique({
       where: { id },
@@ -156,14 +173,19 @@ export class UserService {
       return null;
     }
 
-    if (data.password) {
+    if (data.password && data.password !== "") {
       // Hash the password
+      if (data.password !== data.confirm_password) {
+        throw new Error("Password and confirm password do not match");
+      }
       data.password = await argon2.hash(data.password);
     }
 
     const newData = {
       ...data,
       role: undefined,
+      password: data.password ? data.password : undefined,
+      confirm_password: undefined,
     };
 
     return await prisma.user.update({
