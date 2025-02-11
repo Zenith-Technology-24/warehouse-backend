@@ -108,6 +108,7 @@ async function seedInventory() {
           quantity: quantity,
           price: new Decimal(price),
           amount: new Decimal(quantity * price),
+          unit: faker.helpers.arrayElement(['prs', 'ea', 'sets']),
           size: faker.helpers.arrayElement(['S', 'M', 'L', 'XL', null]),
           status: faker.helpers.arrayElement(['active', 'archived']),
           createdAt: faker.date.past(),
