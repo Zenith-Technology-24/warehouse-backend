@@ -3,6 +3,11 @@ import prisma from "@/generic/prisma";
 import { UserGetUsersResponse } from "@/schema/user.schema";
 import { Prisma, Role, User } from "@prisma/client";
 import argon2 from "argon2";
+
+const statusTable: { [key in 'active' | 'deactivated']: string } = {
+  active: "active",
+  deactivated: "inactive",
+};
 export class UserService {
   // Get user by id
   async getUserById(
@@ -47,10 +52,9 @@ export class UserService {
     page: number = 1,
     pageSize: number = 10,
     search?: string,
-    status?: string
+    status?: keyof typeof statusTable
   ): Promise<UserGetUsersResponse> {
     const skip = (page - 1) * pageSize;
-
     const where = search
       ? {
           OR: [
@@ -64,7 +68,7 @@ export class UserService {
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
-        where: { ...where, status } as any,
+        where: { ...where, status: status ? statusTable[status] : 'active' } as never,
         skip,
         take: pageSize,
         select: {
@@ -99,7 +103,9 @@ export class UserService {
       role: string;
       confirm_password: string;
     }
-  ): Promise<Omit<User, "password"> & { roles: Role[] } | { message: string }> {
+  ): Promise<
+    (Omit<User, "password"> & { roles: Role[] }) | { message: string }
+  > {
     try {
       const role = await prisma.role.findUniqueOrThrow({
         where: {
@@ -147,10 +153,9 @@ export class UserService {
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError) {
         // The .code property can be accessed in a type-safe manner
-        if (e.code === 'P2002') {
-
+        if (e.code === "P2002") {
           return {
-            message: 'There is a unique constraint violation'
+            message: "There is a unique constraint violation",
           };
         }
       }
