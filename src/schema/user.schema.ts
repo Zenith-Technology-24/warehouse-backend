@@ -19,7 +19,6 @@ export const userGetByIdSchema = z.object({
 
 export const updateUserRequestSchema = z.object({
   username: z.string().optional(),
-  email: z.string().email().optional(),
   current_password: z.string().optional(),
   password: z.string().optional(),
   confirm_password: z.string().optional(),

@@ -8,7 +8,6 @@ import { AuthService } from "@/services/auth.service";
 
 interface UpdateUserRequest {
   username?: string;
-  email?: string;
   current_password?: string;
   password?: string;
   confirm_password?: string;
@@ -107,8 +106,9 @@ export const updateUser = async (c: Context & { user: User }) => {
       where: { id: currentUser.id },
       data: {
         username: data.username,
-        email: data.email,
         password: data.password,
+        lastname: data.lastname,
+        firstname: data.firstname,
       },
       include: {
         roles: true,
