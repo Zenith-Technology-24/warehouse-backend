@@ -14,7 +14,15 @@ export class InventoryService {
         id,
       },
       include: {
-        issuances: true,
+        issuanceItems: {
+          include: {
+            issuanceEndUser: {
+              select: {
+                endUser: true
+              }
+            }
+          }
+        },
       },
     });
   }
@@ -43,7 +51,15 @@ export class InventoryService {
         skip,
         take: pageSize,
         include: {
-          issuances: true,
+          issuanceItems: {
+            include: {
+              issuanceEndUser: {
+                select: {
+                  endUser: true
+                }
+              }
+            }
+          },
         },
         orderBy: {
           createdAt: "asc",
