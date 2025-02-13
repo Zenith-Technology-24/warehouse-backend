@@ -1,4 +1,4 @@
-import { Inventory, PrismaClient, EndUser, Issuance } from "@prisma/client";
+import { EndUser, Inventory, PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 import {faker} from '@faker-js/faker';
 import { Decimal } from "@prisma/client/runtime/library";
@@ -78,12 +78,12 @@ async function seedEndUsers() {
   console.log("👤 Seeding end users...");
   const endUsers: EndUser[] = [];
 
-  const endUserNames = ['FSPI', 'CAFGU', 'ANGBU'];
+  const endUserNames = ['FSPI', 'CAFGU', 'ANGBU', 'PNP', 'AFP'];
 
-  for (let i = 0; i < endUserNames.length; i++) {
+  for (const name of endUserNames) {
     endUsers.push(await prisma.endUser.create({
       data: {
-        name: endUserNames[i],
+        name: name,
       },
     }));
   }
@@ -96,68 +96,78 @@ async function seedInventory() {
   console.log("📦 Seeding inventory...");
   const inventoryItems: Inventory[] = [];
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 10; i++) {
     const quantity = faker.number.int({ min: 10, max: 100 });
     const price = parseFloat(faker.commerce.price({ min: 100, max: 1000 }));
     
-    inventoryItems.push({
-          id: faker.string.uuid(),
-          itemName: faker.commerce.productName(),
-          location: faker.location.city(),
-          supplier: faker.company.name(),
-          quantity: quantity,
-          price: new Decimal(price),
-          amount: new Decimal(quantity * price),
-          unit: faker.helpers.arrayElement(['prs', 'ea', 'sets']),
-          size: faker.helpers.arrayElement(['S', 'M', 'L', 'XL', null]),
-          status: faker.helpers.arrayElement(['active', 'archived']),
-          createdAt: faker.date.past(),
-          updatedAt: faker.date.recent(),
-          endUserId: null,
-        });
+    inventoryItems.push(await prisma.inventory.create({
+      data: {
+        itemName: faker.commerce.productName(),
+        location: faker.location.city(),
+        supplier: faker.company.name(),
+        quantity: quantity,
+        price: new Decimal(price),
+        amount: new Decimal(quantity * price),
+        unit: faker.helpers.arrayElement(['prs', 'ea', 'sets']),
+        size: faker.helpers.arrayElement(['S', 'M', 'L', 'XL', null]),
+        status: faker.helpers.arrayElement(['active', 'archived']),
+      }
+    }));
   }
 
-  const inventory = await prisma.inventory.createMany({
-    data: inventoryItems,
-    skipDuplicates: true,
-  });
-
-  console.log(`✅ Created ${inventory.count} inventory items`);
-  return inventory;
+  console.log(`✅ Created ${inventoryItems.length} inventory items`);
+  return inventoryItems;
 }
 
 async function seedIssuance() {
   console.log("📝 Seeding issuances...");
   
-  // Get existing users and inventory items
   const users = await prisma.user.findMany();
   const inventoryItems = await prisma.inventory.findMany();
   const endUsers = await prisma.endUser.findMany();
 
-  const issuances: Issuance[] = [];
-
   for (let i = 0; i < 5; i++) {
     const randomUser = faker.helpers.arrayElement(users);
-    const randomEndUser = faker.helpers.arrayElement(endUsers);
     
-    issuances.push(await prisma.issuance.create({
+    // Create issuance
+    const issuance = await prisma.issuance.create({
       data: {
         userId: randomUser.id,
         directiveNo: faker.string.alphanumeric(8).toUpperCase(),
         issuanceDate: faker.date.recent(),
         expiryDate: faker.date.future(),
         documentNum: faker.string.alphanumeric(10).toUpperCase(),
-        endUserId: randomEndUser.id,
         status: faker.helpers.arrayElement(['pending', 'withdrawn', 'archived']),
-        inventoryItems: {
-          connect: faker.helpers.arrayElements(inventoryItems, { min: 1, max: 3 }).map(item => ({ id: item.id })),
-        },
       },
-    }));
+    });
+
+    // Create 1-3 IssuanceEndUser entries
+    const selectedEndUsers = faker.helpers.arrayElements(endUsers, { min: 1, max: 3 });
+    
+    for (const endUser of selectedEndUsers) {
+      const issuanceEndUser = await prisma.issuanceEndUser.create({
+        data: {
+          issuanceId: issuance.id,
+          endUserId: endUser.id,
+        },
+      });
+
+      // Create 1-5 IssuanceEndUserItem entries for each IssuanceEndUser
+      const selectedItems = faker.helpers.arrayElements(inventoryItems, { min: 1, max: 5 });
+      
+      for (const item of selectedItems) {
+        await prisma.issuanceEndUserItem.create({
+          data: {
+            issuanceEndUserId: issuanceEndUser.id,
+            inventoryId: item.id,
+            quantity: faker.number.int({ min: 1, max: 10 }),
+          },
+        });
+      }
+    }
   }
 
-  console.log(`✅ Created ${issuances.length} issuances`);
-  return issuances;
+  console.log(`✅ Created 5 issuances with multiple end users and items`);
 }
 
 async function main() {

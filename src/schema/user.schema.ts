@@ -17,6 +17,16 @@ export const userGetByIdSchema = z.object({
   id: z.string(),
 });
 
+export const updateUserRequestSchema = z.object({
+  username: z.string().optional(),
+  email: z.string().email().optional(),
+  current_password: z.string().optional(),
+  password: z.string().optional(),
+  confirm_password: z.string().optional(),
+  firstname: z.string().optional(),
+  lastname: z.string().optional(),
+});
+
 export const userGetUsersSchema = z.object({
   page: z.string().optional(),
   limit: z.string().optional(),

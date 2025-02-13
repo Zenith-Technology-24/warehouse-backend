@@ -21,52 +21,78 @@ model Expense {
   @@map("expense")
 }
 
+// ...existing code...
+
 model Inventory {
-  id        String          @id @unique @default(uuid())
-  itemName  String          @map("item_name")
-  location  String
-  supplier  String
-  quantity  Int
-  price     Decimal         @db.Decimal(10, 2)
-  amount    Decimal         @db.Decimal(10, 2)
-  size      String?
-  unit      Units           @default(ea)
-  status    InventoryStatus @default(active)
-  createdAt DateTime        @default(now()) @map("created_at")
-  updatedAt DateTime        @updatedAt @map("updated_at")
-  issuances Issuance[]
-  EndUser   EndUser?        @relation(fields: [endUserId], references: [id])
-  endUserId String?
+  id            String               @id @unique @default(uuid())
+  itemName      String               @map("item_name")
+  location      String
+  supplier      String
+  quantity      Int
+  price         Decimal              @db.Decimal(10, 2)
+  amount        Decimal              @db.Decimal(10, 2)
+  size          String?
+  unit          Units                @default(ea)
+  status        InventoryStatus      @default(active)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  issuanceItems IssuanceEndUserItem[]
 
   @@map("inventory")
 }
 
 model EndUser {
-  id        String      @id @unique @default(uuid())
-  name      String      @map("name")
-  // Make a relation to the issuance model and the inventory model
-  issuance  Issuance[]
-  inventory Inventory[]
+  id                String               @id @unique @default(uuid())
+  name              String               @map("name")
+  issuanceEndUsers  IssuanceEndUser[]
 
   @@map("end_user")
 }
 
 model Issuance {
-  id             String         @id @unique @default(uuid())
-  userId         String         @map("user_id")
-  directiveNo    String         @map("directive_no")
-  issuanceDate   DateTime       @default(now()) @map("issuance_date")
-  expiryDate     DateTime       @map("expiry_date")
-  documentNum    String         @map("document_num")
-  status         IssuanceStatus @default(pending)
-  user           User           @relation(fields: [userId], references: [id])
-  inventoryItems Inventory[]
-  EndUser        EndUser?       @relation(fields: [endUserId], references: [id])
-  endUserId      String?
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  id           String             @id @unique @default(uuid())
+  userId       String             @map("user_id")
+  directiveNo  String             @map("directive_no")
+  issuanceDate DateTime           @default(now()) @map("issuance_date")
+  expiryDate   DateTime           @map("expiry_date")
+  documentNum  String             @map("document_num")
+  status       IssuanceStatus     @default(pending)
+  user         User               @relation(fields: [userId], references: [id])
+  endUsers     IssuanceEndUser[]
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
 
   @@map("issuance")
+}
+
+// New junction table for Issuance and EndUser
+model IssuanceEndUser {
+  id        String               @id @unique @default(uuid())
+  issuance  Issuance            @relation(fields: [issuanceId], references: [id])
+  endUser   EndUser             @relation(fields: [endUserId], references: [id])
+  issuanceId String
+  endUserId  String
+  items     IssuanceEndUserItem[]
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@unique([issuanceId, endUserId])
+  @@map("issuance_end_user")
+}
+
+// New junction table for IssuanceEndUser and Inventory
+model IssuanceEndUserItem {
+  id                String          @id @unique @default(uuid())
+  issuanceEndUser   IssuanceEndUser @relation(fields: [issuanceEndUserId], references: [id])
+  inventory         Inventory       @relation(fields: [inventoryId], references: [id])
+  issuanceEndUserId String
+  inventoryId       String
+  quantity          Int
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@unique([issuanceEndUserId, inventoryId])
+  @@map("issuance_end_user_item")
 }
 
 model Role {

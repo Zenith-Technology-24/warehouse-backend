@@ -6,6 +6,16 @@ import { jwtSign } from "@/utils/auth";
 import type { User } from "@prisma/client";
 import { AuthService } from "@/services/auth.service";
 
+interface UpdateUserRequest {
+  username?: string;
+  email?: string;
+  current_password?: string;
+  password?: string;
+  confirm_password?: string;
+  firstname?: string;
+  lastname?: string;
+}
+
 export const login = async (c: Context) => {
   const data: LoginRequestType = await c.req.json<LoginRequestType>();
   console.log(data);
@@ -56,4 +66,65 @@ export const session = async (c: Context & { user: User }) => {
       password: undefined,
     },
   });
+};
+
+
+
+export const updateUser = async (c: Context & { user: User }) => {
+  const currentUser = c.user;
+  const data: UpdateUserRequest = await c.req.json<UpdateUserRequest>();
+
+  // If password update is requested, validate current password and new password
+  if (data.password || data.current_password || data.confirm_password) {
+    // Check if all password fields are provided
+    if (!data.current_password || !data.password || !data.confirm_password) {
+      return c.json(
+        { error: "All password fields are required for password update" },
+        400
+      );
+    }
+
+    // Verify current password
+    const isValidPassword = await argon2.verify(
+      currentUser.password,
+      data.current_password
+    );
+    if (!isValidPassword) {
+      return c.json({ error: "Current password is incorrect" }, 400);
+    }
+
+    // Check if new password matches confirmation
+    if (data.password !== data.confirm_password) {
+      return c.json({ error: "New passwords do not match" }, 400);
+    }
+
+    // Hash new password
+    data.password = await argon2.hash(data.password);
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: currentUser.id },
+      data: {
+        username: data.username,
+        email: data.email,
+        password: data.password,
+      },
+      include: {
+        roles: true,
+      },
+    });
+
+    return c.json({
+      user: {
+        ...updatedUser,
+        password: undefined,
+      },
+    });
+  } catch (error) {
+    return c.json(
+      { message: "Failed to update user. Username or email might already exist", error },
+      400
+    );
+  }
 };

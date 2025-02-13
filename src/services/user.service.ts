@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/generic/prisma";
 import { UserGetUsersResponse } from "@/schema/user.schema";
-import { Prisma, Role, User } from "@prisma/client";
+import { Role, User } from "@prisma/client";
 import argon2 from "argon2";
 
 const statusTable: { [key in "active" | "deactivated"]: string } = {
@@ -187,7 +187,6 @@ export class UserService {
       role: undefined,
       password: data.password ? data.password : undefined,
       confirm_password: undefined,
-      current_password: undefined,
     };
 
     return await prisma.user.update({
