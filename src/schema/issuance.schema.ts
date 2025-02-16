@@ -86,7 +86,7 @@ const issuanceResponseSchema = z.object({
       id: z.string(),
       endUser: z.object({
         id: z.string(),
-        name: z.string(),
+        name: z.string().optional(),
       }),
       items: z.array(
         z.object({
