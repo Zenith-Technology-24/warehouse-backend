@@ -9,7 +9,7 @@ export class IssuanceService {
   async createIssuance(data: CreateIssuanceInput, user: User) {
     try {
       const { endUsers, ...issuanceData } = data;
-
+      let issuanceEndUser = null;
       const issuance = await prisma.issuance.create({
         data: {
           directiveNo: issuanceData.directive_no,
@@ -24,18 +24,51 @@ export class IssuanceService {
         },
       });
 
-      // Create IssuanceEndUser entries with their items
       for (const endUser of endUsers) {
-        const issuanceEndUser = await prisma.issuanceEndUser.create({
-          data: {
-            issuance: {
-              connect: { id: issuance.id },
-            },
-            endUser: {
-              connect: { id: endUser.id },
-            },
+        console.log("Searching for user with:", {
+          name: endUser.name,
+          id: endUser.id,
+        });
+        let user = await prisma.endUser.findFirst({
+          where: {
+            OR: [
+              { name: { equals: endUser.name } },
+              { id: { equals: endUser.id } },
+            ],
           },
         });
+        console.log("Found user:", user);
+        // If it doesn't exist, create new end user
+        if (!user) {
+          user = await prisma.endUser.create({
+            data: {
+              name: endUser.name,
+            },
+          });
+
+          // Create new end user items
+          issuanceEndUser = await prisma.issuanceEndUser.create({
+            data: {
+              issuance: {
+                connect: { id: issuance.id },
+              },
+              endUser: {
+                connect: { id: user.id },
+              },
+            },
+          });
+        } else {
+          issuanceEndUser = await prisma.issuanceEndUser.create({
+            data: {
+              issuance: {
+                connect: { id: issuance.id },
+              },
+              endUser: {
+                connect: { id: user.id },
+              },
+            },
+          });
+        }
 
         // Create IssuanceEndUserItem entries
         for (const item of endUser.items) {
@@ -48,15 +81,15 @@ export class IssuanceService {
             // Create new inventory item if it doesn't exist
             inventoryItem = await prisma.inventory.create({
               data: {
-                itemName: item.inventory?.itemName || "Unknown Item",
-                location: item.inventory?.location || "Default Location",
-                supplier: item.inventory?.supplier || "Default Supplier",
-                quantity: item.quantity,
-                price: item.inventory?.price || 0,
-                amount: item.inventory?.amount || 0,
-                size: item.inventory?.size,
-                unit: item.inventory?.unit || "ea",
-                status: item.inventory?.status || "active",
+                itemName: item.itemName || "Unknown Item",
+                location: item.location || "Default Location",
+                supplier: item.supplier || "Default Supplier",
+                quantity: item.quantity || 0,
+                price: item.price || 0,
+                amount: item.amount || 0,
+                size: item.size,
+                unit: item.unit || "ea",
+                status: item.status || "active",
               },
             });
           }
@@ -69,7 +102,7 @@ export class IssuanceService {
               inventory: {
                 connect: { id: inventoryItem.id },
               },
-              quantity: item.quantity,
+              quantity: item.quantity || 0,
             },
           });
         }
@@ -135,15 +168,15 @@ export class IssuanceService {
             // Create new inventory item if it doesn't exist
             inventoryItem = await prisma.inventory.create({
               data: {
-                itemName: item.inventory?.itemName || "Unknown Item",
-                location: item.inventory?.location || "Default Location",
-                supplier: item.inventory?.supplier || "Default Supplier",
-                quantity: item.quantity,
-                price: item.inventory?.price || 0,
-                amount: item.inventory?.amount || 0,
-                size: item.inventory?.size,
-                unit: item.inventory?.unit || "ea",
-                status: item.inventory?.status || "active",
+                itemName: item.itemName || "Unknown Item",
+                location: item.location || "Default Location",
+                supplier: item.supplier || "Default Supplier",
+                quantity: item.quantity || 0,
+                price: item.price || 0,
+                amount: item.amount || 0,
+                size: item.size,
+                unit: item.unit || "ea",
+                status: item.status || "active",
               },
             });
           }
@@ -156,7 +189,7 @@ export class IssuanceService {
               inventory: {
                 connect: { id: inventoryItem.id },
               },
-              quantity: item.quantity,
+              quantity: item.quantity || 0,
             },
           });
         }
@@ -238,8 +271,8 @@ export class IssuanceService {
             select: {
               lastname: true,
               firstname: true,
-              username: true
-            }
+              username: true,
+            },
           },
         },
       }),
