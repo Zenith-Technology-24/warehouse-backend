@@ -42,7 +42,7 @@ export class IssuanceService {
         if (!user) {
           user = await prisma.endUser.create({
             data: {
-              name: endUser.name,
+              name: endUser.name || "NKWN",
             },
           });
 
@@ -167,7 +167,7 @@ export class IssuanceService {
         if (!user) {
           user = await prisma.endUser.create({
             data: {
-              name: endUser.name,
+              name: endUser.name || "NKWN",
             },
           });
 

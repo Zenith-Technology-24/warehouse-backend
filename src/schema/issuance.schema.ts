@@ -11,8 +11,8 @@ const issuanceInventoryItemSchema = z.object({
   location: z.string().optional(),
   supplier: z.string().optional(),
   quantity: z.number().optional(),
-  price: z.number().optional(),
-  amount: z.number().optional(),
+  price: z.union([z.string(), z.number()]).optional(),
+  amount: z.union([z.string(), z.number()]).optional(),
   size: z.string().optional(),
   unit: z.enum(["prs", "ea", "sets"]).default("ea"),
   status: z.enum(["active", "archived"]).default("active"),
@@ -93,8 +93,8 @@ const issuanceResponseSchema = z.object({
           inventory: z.object({
             id: z.string(),
             itemName: z.string(),
-            quantity: z.number(),
-            price: z.number(),
+            quantity: z.union([z.string(), z.number()]),
+            price: z.union([z.string(), z.number()]),
             unit: z.string(),
           }),
         })
