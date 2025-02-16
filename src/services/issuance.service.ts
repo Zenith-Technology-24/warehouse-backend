@@ -132,7 +132,7 @@ export class IssuanceService {
   async updateIssuance(id: string, data: UpdateIssuanceInput) {
     try {
       const { endUsers, ...issuanceData } = data;
-
+      let issuanceEndUser = null;
       const updatedIssuance = await prisma.issuance.update({
         where: { id },
         data: {
@@ -142,21 +142,58 @@ export class IssuanceService {
         },
       });
 
+      await prisma.issuanceEndUserItem.deleteMany({
+        where: {
+          issuanceEndUser: {
+            issuanceId: id
+          }
+        }
+      });
+      
+      // Then delete IssuanceEndUser records
       await prisma.issuanceEndUser.deleteMany({
         where: { issuanceId: id },
       });
 
       for (const endUser of endUsers) {
-        const issuanceEndUser = await prisma.issuanceEndUser.create({
-          data: {
-            issuance: {
-              connect: { id: updatedIssuance.id },
-            },
-            endUser: {
-              connect: { id: endUser.id },
-            },
+        let user = await prisma.endUser.findFirst({
+          where: {
+            OR: [
+              { name: { equals: endUser.name } },
+              { id: { equals: endUser.id } },
+            ],
           },
         });
+        if (!user) {
+          user = await prisma.endUser.create({
+            data: {
+              name: endUser.name,
+            },
+          });
+
+          // Create new end user items
+          issuanceEndUser = await prisma.issuanceEndUser.create({
+            data: {
+              issuance: {
+                connect: { id: updatedIssuance.id },
+              },
+              endUser: {
+                connect: { id: user.id },
+              },
+            },
+          });
+        } else {
+          issuanceEndUser = await prisma.issuanceEndUser.create({
+            data: {
+              issuance: {
+                connect: { id: updatedIssuance.id },
+              },
+              endUser: {
+                connect: { id: user.id },
+              },
+            },
+          });
+        }
 
         for (const item of endUser.items) {
           // Check if inventory exists
@@ -239,7 +276,7 @@ export class IssuanceService {
             roles: true,
             updatedAt: true,
             createdAt: true,
-          }
+          },
         },
       },
     });
