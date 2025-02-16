@@ -19,9 +19,7 @@ export class EndUserService {
   }
 
   async getEndUsers() {
-    return {
-        data: await prisma.endUser.findMany(),
-    };
+    return await prisma.endUser.findMany();
   }
 
   async updateEndUser(id: string, data: any) {

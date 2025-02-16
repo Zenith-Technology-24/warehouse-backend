@@ -164,21 +164,19 @@ export class InventoryService {
   }
 
   async inventoryIssuance() {
-    return {
-      data: await prisma.inventory.findMany({
-        where: {},
-        select: {
-          id: true,
-          itemName: true,
-          quantity: true,
-          amount: true,
-          price: true,
-          size: true,
-          supplier: true,
-          location: true,
-          unit: true,
-        },
-      }),
-    };
+    return await prisma.inventory.findMany({
+      where: {},
+      select: {
+        id: true,
+        itemName: true,
+        quantity: true,
+        amount: true,
+        price: true,
+        size: true,
+        supplier: true,
+        location: true,
+        unit: true,
+      },
+    });
   }
 }
