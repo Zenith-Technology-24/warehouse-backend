@@ -144,7 +144,7 @@ export class InventoryService {
           quantity: data.quantity,
           price: data.price ? new Decimal(data.price) : undefined,
           amount: data.amount ? new Decimal(data.amount) : undefined,
-          size: data.size,
+          size: String(data.size),
           status: data.status as "active" | "archived",
         },
       });
