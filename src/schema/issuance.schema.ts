@@ -33,16 +33,16 @@ const issuanceEndUserSchema = z.object({
 export const issuanceCore = {
   directive_no: z.string({
     required_error: "Directive number is required",
-  }),
+  }).optional(),
   document_no: z.string({
     required_error: "Document number is required",
-  }),
+  }).optional(),
   expiry_date: z.string({
     required_error: "Expiry date is required",
-  }),
+  }).optional(),
   endUsers: z
     .array(issuanceEndUserSchema)
-    .min(1, "At least one end user is required"),
+    .min(1, "At least one end user is required").optional(),
 };
 
 // Create Issuance Schema
