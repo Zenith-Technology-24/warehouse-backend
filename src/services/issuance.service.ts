@@ -230,7 +230,17 @@ export class IssuanceService {
             },
           },
         },
-        user: true,
+        user: {
+          select: {
+            lastname: true,
+            firstname: true,
+            username: true,
+            email: true,
+            roles: true,
+            updatedAt: true,
+            createdAt: true,
+          }
+        },
       },
     });
   }
