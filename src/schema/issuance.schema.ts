@@ -1,6 +1,6 @@
 import { z } from "@hono/zod-openapi";
 
-// Define the inventory item schema for issuance
+
 const issuanceInventoryItemSchema = z.object({
   inventoryId: z.string({
     required_error: "Inventory ID is required",
@@ -18,7 +18,7 @@ const issuanceInventoryItemSchema = z.object({
   status: z.enum(["active", "archived"]).default("active"),
 });
 
-// Define the end user schema for issuance
+
 const issuanceEndUserSchema = z.object({
   id: z.string({
     required_error: "End user ID is required",
@@ -29,7 +29,7 @@ const issuanceEndUserSchema = z.object({
     .min(1, "At least one item is required"),
 });
 
-// Base schema for common issuance fields
+
 export const issuanceCore = {
   directive_no: z.string({
     required_error: "Directive number is required",
@@ -45,26 +45,24 @@ export const issuanceCore = {
     .min(1, "At least one end user is required").optional(),
 };
 
-// Create Issuance Schema
+
 export const createIssuanceSchema = z.object({
   status: z.enum(["pending", "withdrawn", "archived"]).default("pending"),
   ...issuanceCore,
 });
 
-// Update Issuance Schema
+
 export const updateIssuanceSchema = z.object({
   status: z.enum(["pending", "withdrawn", "archived"]).default("pending"),
   ...issuanceCore,
 });
 
-// Get Single Issuance Schema
 export const getIssuanceBySchema = z.object({
   id: z.string({
     required_error: "Issuance ID is required",
   }),
 });
 
-// Get All Issuances Query Schema
 export const getAllIssuancesSchema = z.object({
   limit: z.string().optional(),
   page: z.string().optional(),
@@ -72,7 +70,7 @@ export const getAllIssuancesSchema = z.object({
   status: z.string().optional(),
 });
 
-// Response schema for a single issuance
+
 const issuanceResponseSchema = z.object({
   id: z.string(),
   directive_no: z.string(),
@@ -110,7 +108,7 @@ const issuanceResponseSchema = z.object({
   updatedAt: z.string(),
 });
 
-// Get issuance response schema
+
 export const getIssuanceSchema = z.object({
   data: z.array(issuanceResponseSchema),
   total: z.number(),
@@ -118,7 +116,7 @@ export const getIssuanceSchema = z.object({
   totalPages: z.number(),
 });
 
-// Types
+
 export type CreateIssuanceInput = z.TypeOf<typeof createIssuanceSchema>;
 export type UpdateIssuanceInput = z.TypeOf<typeof updateIssuanceSchema>;
 export type GetIssuanceInput = z.TypeOf<typeof getIssuanceSchema>;

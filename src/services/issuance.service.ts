@@ -132,6 +132,26 @@ export class IssuanceService {
   async updateIssuance(id: string, data: UpdateIssuanceInput) {
     try {
       const { endUsers, ...issuanceData } = data;
+      if (Object.keys(data).length === 1 && "status" in data) {
+        const updatedIssuance = await prisma.issuance.update({
+          where: { id },
+          data: { status: data.status },
+          include: {
+            endUsers: {
+              include: {
+                endUser: true,
+                items: {
+                  include: {
+                    inventory: true,
+                  },
+                },
+              },
+            },
+            user: true,
+          },
+        });
+        return updatedIssuance;
+      }
       let issuanceEndUser = null;
       const updatedIssuance = await prisma.issuance.update({
         where: { id },
@@ -145,11 +165,11 @@ export class IssuanceService {
       await prisma.issuanceEndUserItem.deleteMany({
         where: {
           issuanceEndUser: {
-            issuanceId: id
-          }
-        }
+            issuanceId: id,
+          },
+        },
       });
-      
+
       // Then delete IssuanceEndUser records
       await prisma.issuanceEndUser.deleteMany({
         where: { issuanceId: id },
