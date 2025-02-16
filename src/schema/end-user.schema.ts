@@ -3,7 +3,7 @@ import { issuanceCore } from "./issuance.schema";
 import { inventoryIssuanceSchema } from "./inventory.schema";
 
 export const endUserSchema = z.object({
-    name: z.string(),
+    name: z.string().optional(),
     issuance: z.array(z.object({
         ...issuanceCore
     })),
