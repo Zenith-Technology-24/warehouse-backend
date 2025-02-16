@@ -23,9 +23,7 @@ const issuanceEndUserSchema = z.object({
   id: z.string({
     required_error: "End user ID is required",
   }),
-  name: z.string({
-    required_error: "End user name is required",
-  }),
+  name: z.string().optional(),
   items: z
     .array(issuanceInventoryItemSchema)
     .min(1, "At least one item is required"),
