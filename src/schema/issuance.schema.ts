@@ -2,20 +2,19 @@ import { z } from "@hono/zod-openapi";
 
 
 const issuanceInventoryItemSchema = z.object({
-  inventoryId: z.string({
-    required_error: "Inventory ID is required",
-  }),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  itemName: z.string().optional(),
+  id: z.string().optional(),
+  item_name: z.string().optional(),
   location: z.string().optional(),
   supplier: z.string().optional(),
   quantity: z.number().optional(),
   price: z.union([z.string(), z.number()]).optional(),
   amount: z.union([z.string(), z.number()]).optional(),
-  size: z.string().optional(),
-  unit: z.enum(["prs", "ea", "sets"]).default("ea"),
   status: z.enum(["active", "archived"]).default("active"),
+  unit: z.string().default("sets"),
+  size: z.string().nullable().optional(),
+  item_type_id: z.string().optional(), // Added to match Prisma schema
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 });
 
 

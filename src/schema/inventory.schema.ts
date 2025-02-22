@@ -9,8 +9,10 @@ export const inventorySchema = z.object({
   price: z.number(),
   amount: z.number(),
   status: z.enum(["active", "archived"]).default("active"),
-  unit: z.enum(['prs', 'ea', 'sets']).default('ea'),
-  size: z.number().nullable(),
+  unit: z.string().default("sets"),
+  size: z.string().nullable(),
+  item_type_id: z.string().optional(),
+  item_type_name: z.string().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
@@ -24,12 +26,11 @@ export const inventoryIssuanceSchema = z.object({
   price: z.union([z.string(), z.number()]).optional(),
   amount: z.union([z.string(), z.number()]).optional(),
   status: z.enum(["active", "archived"]).default("active"),
-  unit: z.enum(['prs', 'ea', 'sets']).default('ea'),
+  unit: z.enum(["prs", "ea", "sets"]).default("ea"),
   size: z.string().nullable().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
-
 
 export const createInventorySchema = z.object({
   item_name: z.string(),
@@ -39,7 +40,9 @@ export const createInventorySchema = z.object({
   price: z.union([z.string(), z.number()]),
   amount: z.union([z.string(), z.number()]),
   status: z.enum(["active", "archived"]).default("active"),
-  unit: z.enum(['prs', 'ea', 'sets']).default('ea').optional(),
+  unit: z.enum(["prs", "ea", "sets"]).default("ea").optional(),
+  item_type_id: z.string().optional(),
+  item_type_name: z.string().optional(),
   size: z.string().nullable(),
 });
 
@@ -62,10 +65,9 @@ export const updateInventorySchema = z.object({
   price: z.union([z.string(), z.number()]).optional(),
   amount: z.union([z.string(), z.number()]).optional(),
   status: z.enum(["active", "archived"]).default("active"),
-  unit: z.enum(['prs', 'ea', 'sets']).default('ea'),
+  unit: z.enum(["prs", "ea", "sets"]).default("ea"),
   size: z.string().nullable().optional(),
 });
-
 
 export const getInventorySchema = z.object({
   data: z.array(inventorySchema),
@@ -75,6 +77,8 @@ export const getInventorySchema = z.object({
 });
 
 export type InventoryType = z.infer<typeof inventorySchema>;
-export type InventoriesResponseType = z.infer<typeof getInventorySchema>
-export type UpdateInventoryInput = Partial<Omit<InventoryType, 'id' | 'createdAt' | 'updatedAt' | 'isArchived'>>;
+export type InventoriesResponseType = z.infer<typeof getInventorySchema>;
+export type UpdateInventoryInput = Partial<
+  Omit<InventoryType, "id" | "createdAt" | "updatedAt" | "isArchived">
+>;
 export type CreateInventoryInput = z.infer<typeof createInventorySchema>;

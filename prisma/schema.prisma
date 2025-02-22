@@ -21,60 +21,114 @@ model Expense {
   @@map("expense")
 }
 
-// ...existing code...
+model ItemType {
+  id        String      @id @unique @default(uuid())
+  name      String      @unique
+  sizeType  SizeType    @default(none) @map("size_type")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+  Inventory Inventory[]
 
+  @@map("inventory_item_type")
+}
 model Inventory {
-  id            String               @id @unique @default(uuid())
-  itemName      String               @map("item_name")
+  id            String                @id @unique @default(uuid())
+  itemName      String                @map("item_name")
   location      String
   supplier      String
   quantity      Int
-  price         Decimal              @db.Decimal(10, 2)
-  amount        Decimal              @db.Decimal(10, 2)
+  price         Decimal               @db.Decimal(10, 2)
+  amount        Decimal               @db.Decimal(10, 2)
   size          String?
-  unit          Units                @default(ea)
-  status        InventoryStatus      @default(active)
-  createdAt     DateTime             @default(now()) @map("created_at")
-  updatedAt     DateTime             @updatedAt @map("updated_at")
+  unit          String                @default("sets")
+  status        InventoryStatus       @default(active)
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
   issuanceItems IssuanceEndUserItem[]
+  itemTypeId    String                @map("item_type_id")
+  itemType      ItemType              @relation(fields: [itemTypeId], references: [id])
+  receipts      InventoryReceipt[]
 
   @@map("inventory")
 }
 
+// New junction table for Inventory and Receipt
+model InventoryReceipt {
+  id          String    @id @unique @default(uuid())
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  receipt     Receipt   @relation(fields: [receiptId], references: [id])
+  inventoryId String
+  receiptId   String
+  quantity    Int
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([inventoryId, receiptId])
+  @@map("inventory_receipt")
+}
+
 model EndUser {
-  id                String               @id @unique @default(uuid())
-  name              String               @map("name")
-  issuanceEndUsers  IssuanceEndUser[]
+  id               String            @id @unique @default(uuid())
+  name             String            @map("name")
+  issuanceEndUsers IssuanceEndUser[]
 
   @@map("end_user")
 }
 
 model Issuance {
-  id           String             @id @unique @default(uuid())
-  userId       String             @map("user_id")
-  directiveNo  String             @map("directive_no")
-  issuanceDate DateTime           @default(now()) @map("issuance_date")
-  expiryDate   DateTime           @map("expiry_date")
-  documentNum  String             @map("document_num")
-  status       IssuanceStatus     @default(pending)
-  user         User               @relation(fields: [userId], references: [id])
+  id           String            @id @unique @default(uuid())
+  userId       String            @map("user_id")
+  directiveNo  String            @map("directive_no")
+  issuanceDate DateTime          @default(now()) @map("issuance_date")
+  expiryDate   DateTime          @map("expiry_date")
+  documentNum  String            @map("document_num")
+  status       IssuanceStatus    @default(pending)
+  user         User              @relation(fields: [userId], references: [id])
   endUsers     IssuanceEndUser[]
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
+  receipts     IssuanceReceipt[] // Add this line
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
 
   @@map("issuance")
 }
 
-// New junction table for Issuance and EndUser
+model Receipt {
+  id          String            @id @unique @default(uuid())
+  directiveNo String           @map("directive_no")
+  source     String?            @map("source")
+  
+  receiptDate DateTime         @default(now()) @map("receipt_date")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  inventories InventoryReceipt[]
+  issuances   IssuanceReceipt[] // Add this line
+
+  @@map("receipt")
+}
+
+// Add this new junction table
+model IssuanceReceipt {
+  id         String   @id @unique @default(uuid())
+  issuance   Issuance @relation(fields: [issuanceId], references: [id])
+  receipt    Receipt  @relation(fields: [receiptId], references: [id])
+  issuanceId String
+  receiptId  String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([issuanceId, receiptId])
+  @@map("issuance_receipt")
+}
+
 model IssuanceEndUser {
-  id        String               @id @unique @default(uuid())
-  issuance  Issuance            @relation(fields: [issuanceId], references: [id])
-  endUser   EndUser             @relation(fields: [endUserId], references: [id])
+  id         String                @id @unique @default(uuid())
+  issuance   Issuance              @relation(fields: [issuanceId], references: [id])
+  endUser    EndUser               @relation(fields: [endUserId], references: [id])
   issuanceId String
   endUserId  String
-  items     IssuanceEndUserItem[]
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
+  items      IssuanceEndUserItem[]
+  createdAt  DateTime              @default(now()) @map("created_at")
+  updatedAt  DateTime              @updatedAt @map("updated_at")
 
   @@unique([issuanceId, endUserId])
   @@map("issuance_end_user")
@@ -155,8 +209,8 @@ enum UserStatus {
   inactive
 }
 
-enum Units {
-  prs
-  ea
-  sets
+enum SizeType {
+  none
+  apparel
+  numerical
 }

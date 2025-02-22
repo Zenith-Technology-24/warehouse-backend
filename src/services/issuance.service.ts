@@ -12,10 +12,10 @@ export class IssuanceService {
       let issuanceEndUser = null;
       const issuance = await prisma.issuance.create({
         data: {
-          directiveNo: issuanceData.directive_no,
-          documentNum: issuanceData.document_no,
+          directiveNo: issuanceData.directive_no || "NKWN",
+          documentNum: issuanceData.document_no || "NKWN",
           issuanceDate: new Date(),
-          expiryDate: issuanceData.expiry_date,
+          expiryDate: issuanceData.expiry_date || new Date(),
           user: {
             connect: {
               id: user.id,
@@ -24,7 +24,7 @@ export class IssuanceService {
         },
       });
 
-      for (const endUser of endUsers) {
+      for (const endUser of endUsers || []) {
         console.log("Searching for user with:", {
           name: endUser.name,
           id: endUser.id,
@@ -74,14 +74,23 @@ export class IssuanceService {
         for (const item of endUser.items) {
           // Check if inventory exists
           let inventoryItem = await prisma.inventory.findUnique({
-            where: { id: item.inventoryId },
+            where: { id: item.id },
+          });
+
+          const itemType = await prisma.itemType.findFirst({
+            where: {
+              OR: [
+                { id: { equals: item.item_type_id } },
+                { name: { equals: item.item_name } },
+              ],
+            },
           });
 
           if (!inventoryItem) {
             // Create new inventory item if it doesn't exist
             inventoryItem = await prisma.inventory.create({
               data: {
-                itemName: item.itemName || "Unknown Item",
+                itemName: item.item_name || "Unknown Item",
                 location: item.location || "Default Location",
                 supplier: item.supplier || "Default Supplier",
                 quantity: item.quantity || 0,
@@ -90,6 +99,9 @@ export class IssuanceService {
                 size: item.size,
                 unit: item.unit || "ea",
                 status: item.status || "active",
+                itemType: itemType
+                  ? { connect: { id: itemType.id } }
+                  : { create: { name: item.item_name || "Unknown Item" } },
               },
             });
           }
@@ -175,7 +187,7 @@ export class IssuanceService {
         where: { issuanceId: id },
       });
 
-      for (const endUser of endUsers) {
+      for (const endUser of endUsers || []) {
         let user = await prisma.endUser.findFirst({
           where: {
             OR: [
@@ -218,14 +230,23 @@ export class IssuanceService {
         for (const item of endUser.items) {
           // Check if inventory exists
           let inventoryItem = await prisma.inventory.findUnique({
-            where: { id: item.inventoryId },
+            where: { id: item.id },
+          });
+
+          // Find the item type if it exists
+          const itemType = await prisma.itemType.findFirst({
+            where: {
+              OR: [
+                { id: { equals: item.item_type_id } },
+                { name: { equals: item.item_name } },
+              ],
+            },
           });
 
           if (!inventoryItem) {
-            // Create new inventory item if it doesn't exist
             inventoryItem = await prisma.inventory.create({
               data: {
-                itemName: item.itemName || "Unknown Item",
+                itemName: item.item_name || "Unknown Item",
                 location: item.location || "Default Location",
                 supplier: item.supplier || "Default Supplier",
                 quantity: item.quantity || 0,
@@ -234,6 +255,9 @@ export class IssuanceService {
                 size: item.size,
                 unit: item.unit || "ea",
                 status: item.status || "active",
+                itemType: itemType
+                  ? { connect: { id: itemType.id } }
+                  : { create: { name: item.item_name || "Unknown Item" } },
               },
             });
           }
@@ -291,11 +315,6 @@ export class IssuanceService {
           select: {
             lastname: true,
             firstname: true,
-            username: true,
-            email: true,
-            roles: true,
-            updatedAt: true,
-            createdAt: true,
           },
         },
       },
@@ -354,4 +373,15 @@ export class IssuanceService {
       totalPages: Math.ceil(total / pageSize),
     };
   }
+
+  // async withdrawAll(id: string) {
+  //   try {
+  //     // Get all the inventory items under the issuance
+      
+
+  //     return [];
+  //   } catch (error) {
+  //     throw new Error(`Failed to withdraw issuance: ${error}`);
+  //   }
+  // }
 }

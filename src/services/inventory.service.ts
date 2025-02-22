@@ -112,6 +112,14 @@ export class InventoryService {
 
   async createInventory(data: CreateInventoryInput) {
     try {
+      // Get item type
+      const itemType = await prisma.itemType.findFirst({
+        where: {
+          OR: [
+            { name: { contains: data.item_type_name, mode: "insensitive" } },
+          ]
+        }
+      });
       const inventory = await prisma.inventory.create({
         data: {
           itemName: data.item_name,
@@ -122,6 +130,7 @@ export class InventoryService {
           amount: new Decimal(data.amount),
           size: data.size,
           status: data.status as "active" | "archived",
+          itemType: itemType ? { connect: { id: itemType.id } } : { create: { name: data.item_name } },
         },
       });
 
