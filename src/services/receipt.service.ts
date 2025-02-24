@@ -255,6 +255,8 @@ export class ReceiptService {
                   unit: true,
                   item: {
                     select: {
+                      location: true,
+                      size: true,
                       quantity: true,
                       item_name: true,
                       price: true,
