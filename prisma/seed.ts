@@ -1,7 +1,7 @@
-import { EndUser, Inventory, PrismaClient } from "@prisma/client";
+import { EndUser, Inventory, IssuanceDetail, Item, PrismaClient, ProductStatus } from "@prisma/client";
 import argon2 from "argon2";
 import { faker } from "@faker-js/faker";
-import { Decimal } from "@prisma/client/runtime/library";
+
 const prisma = new PrismaClient();
 
 async function seedRoles() {
@@ -10,13 +10,13 @@ async function seedRoles() {
     data: [
       {
         name: "superadmin",
-        permissions: [],
-        description: "Can do anything",
+        permissions: ["*"],
+        description: "Super Administrator",
       },
       {
         name: "admin",
-        permissions: [],
-        description: "basic admin",
+        permissions: ["read", "write"],
+        description: "Administrator",
       },
     ],
     skipDuplicates: true,
@@ -27,45 +27,37 @@ async function seedRoles() {
 
 async function seedUsers() {
   console.log("👥 Seeding users...");
-  const adminRole = await prisma.role.findUnique({
-    where: { name: "admin" },
-  });
-
+  const adminRole = await prisma.role.findUnique({ where: { name: "admin" } });
   const superadminRole = await prisma.role.findUnique({
     where: { name: "superadmin" },
   });
 
-  if (!adminRole || !superadminRole) {
+  if (!adminRole || !superadminRole)
     throw new Error("Required roles not found");
-  }
 
   const users = await Promise.all([
     prisma.user.upsert({
-      where: { email: "superadmin@wisce.com" },
+      where: { email: "superadmin@example.com" },
       update: {},
       create: {
-        firstname: "Gil",
-        lastname: "Zaballero",
-        password: await argon2.hash("password123"),
-        roles: {
-          connect: { id: superadminRole.id },
-        },
-        email: "superadmin@wisce.com",
+        email: "superadmin@example.com",
+        firstname: "Super",
+        lastname: "Admin",
         username: "superadmin",
+        password: await argon2.hash("password123"),
+        roles: { connect: { id: superadminRole.id } },
       },
     }),
     prisma.user.upsert({
-      where: { email: "admin@wisce.com" },
+      where: { email: "admin@example.com" },
       update: {},
       create: {
-        firstname: "Glenn",
-        lastname: "Pacturan",
-        password: await argon2.hash("password123"),
-        roles: {
-          connect: { id: adminRole.id },
-        },
-        email: "admin@wisce.com",
+        email: "admin@example.com",
+        firstname: "Admin",
+        lastname: "User",
         username: "admin",
+        password: await argon2.hash("password123"),
+        roles: { connect: { id: adminRole.id } },
       },
     }),
   ]);
@@ -74,203 +66,153 @@ async function seedUsers() {
   return users;
 }
 
-async function seedEndUsers() {
-  console.log("👤 Seeding end users...");
-  const endUsers: EndUser[] = [];
+async function seedItems() {
+  console.log("📝 Seeding items...");
+  const items = [];
 
-  const endUserNames = ["FSPI", "CAFGU", "ANGBU", "PNP", "AFP"];
+  for (let i = 0; i < 5; i++) {
+    const item = await prisma.item.create({
+      data: {
+        item_name: faker.commerce.productName(),
+        location: faker.location.city(),
+        size: faker.helpers.arrayElement(["S", "M", "L", "XL", "38", "40", "42"]),
+        unit: faker.helpers.arrayElement(["pcs", "box", "kg"]),
+        quantity: faker.number.int({ min: 1, max: 100 }).toString(),
+        expiryDate: faker.date.future(),
+        price: faker.commerce.price(),
+        amount: faker.commerce.price(),
+      },
+    });
+    items.push(item as never);
+  }
 
-  for (const name of endUserNames) {
-    endUsers.push(
-      await prisma.endUser.create({
-        data: {
-          name: name,
+  console.log(`✅ Created ${items.length} items`);
+  return items;
+}
+
+async function seedInventories(items: Item[]) {
+  console.log("📦 Seeding inventories...");
+  const inventories = [];
+
+  for (const item of items) {
+    const inventory = await prisma.inventory.create({
+      data: {
+        name: faker.commerce.productName(),
+        status: faker.helpers.arrayElement([
+          'active',
+          'archived',
+          'withdrawn',
+          'pending'
+        ] as ProductStatus[]),
+        unit: faker.helpers.arrayElement(["pcs", "box", "kg"]),
+        sizeType: faker.helpers.arrayElement(["none", "apparrel", "numerical"]),
+        item: { connect: { id: item.id } },
+      },
+    });
+    inventories.push(inventory as never);
+  }
+
+  console.log(`✅ Created ${inventories.length} inventories`);
+  return inventories;
+}
+
+async function seedIssuanceDetails(inventories: Inventory[]) {
+  console.log("📝 Seeding issuance details...");
+  const issuanceDetails = [];
+
+  for (let i = 0; i < 3; i++) {
+    const issuanceDetail = await prisma.issuanceDetail.create({
+      data: {
+        quantity: faker.number.int({ min: 1, max: 100 }).toString(),
+        issuanceId: faker.string.uuid(),
+        status: faker.helpers.arrayElement([
+          'active',
+          'archived',
+          'withdrawn',
+          'pending'
+        ] as ProductStatus[]),
+        items: {
+          connect: [{ id: faker.helpers.arrayElement(inventories).id }]
+        }
+      },
+    });
+    issuanceDetails.push(issuanceDetail as never);
+  }
+
+  console.log(`✅ Created ${issuanceDetails.length} issuance details`);
+  return issuanceDetails;
+}
+
+async function seedIssuances(endUsers: EndUser[], issuanceDetails: IssuanceDetail[]) {
+  console.log("📄 Seeding issuances...");
+  const issuances = [];
+
+  for (let i = 0; i < 3; i++) {
+    const issuance = await prisma.issuance.create({
+      data: {
+        issuanceDirective: faker.string.alphanumeric(10),
+        validityDate: faker.date.future(),
+        status: faker.helpers.arrayElement([
+          'withdrawn',
+          'pending'
+        ] as ProductStatus[]),
+        endUsers: {
+          connect: [{ id: faker.helpers.arrayElement(endUsers).id }]
         },
-      })
-    );
+        issuanceDetail: {
+          connect: { id: faker.helpers.arrayElement(issuanceDetails).id }
+        }
+      },
+    });
+    issuances.push(issuance as never);
+  }
+
+  console.log(`✅ Created ${issuances.length} issuances`);
+  return issuances;
+}
+
+async function seedEndUsers() {
+  console.log("👥 Seeding end users...");
+  const endUsers = [];
+
+  for (let i = 0; i < 3; i++) {
+    const endUser = await prisma.endUser.create({
+      data: {
+        name: faker.company.name(),
+      },
+    });
+    endUsers.push(endUser as never);
   }
 
   console.log(`✅ Created ${endUsers.length} end users`);
   return endUsers;
 }
 
-async function seedReceipts() {
-  console.log("📝 Seeding receipts...");
+async function seedReceipts(inventories: Inventory[]) {
+  console.log("🧾 Seeding receipts...");
   const receipts = [];
-  const inventoryItems = await prisma.inventory.findMany();
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     const receipt = await prisma.receipt.create({
       data: {
-        directiveNo: faker.string.alphanumeric(8).toUpperCase(),
-        receiptDate: faker.date.recent(),
+        source: faker.company.name(),
+        status: faker.helpers.arrayElement([
+          'active',
+          'archived',
+          'withdrawn',
+          'pending'
+        ] as ProductStatus[]),
+        issuanceDirective: faker.string.alphanumeric(10),
+        inventory: {
+          connect: [{ id: faker.helpers.arrayElement(inventories).id }]
+        }
       },
     });
-
-    // Create InventoryReceipt entries
-    const selectedItems = faker.helpers.arrayElements(inventoryItems, {
-      min: 1,
-      max: 3,
-    });
-
-    for (const item of selectedItems) {
-      await prisma.inventoryReceipt.create({
-        data: {
-          receiptId: receipt.id,
-          inventoryId: item.id,
-          quantity: faker.number.int({ min: 1, max: 50 }),
-        },
-      });
-    }
-
     receipts.push(receipt as never);
   }
 
-  console.log(`✅ Created ${receipts.length} receipts with inventory items`);
+  console.log(`✅ Created ${receipts.length} receipts`);
   return receipts;
-}
-
-async function seedIssuance() {
-  console.log("📝 Seeding issuances...");
-
-  const users = await prisma.user.findMany();
-  const inventoryItems = await prisma.inventory.findMany();
-  const endUsers = await prisma.endUser.findMany();
-  const receipts = await prisma.receipt.findMany();
-
-  for (let i = 0; i < 5; i++) {
-    const randomUser = faker.helpers.arrayElement(users);
-
-    // Create issuance
-    const issuance = await prisma.issuance.create({
-      data: {
-        userId: randomUser.id,
-        directiveNo: faker.string.alphanumeric(8).toUpperCase(),
-        issuanceDate: faker.date.recent(),
-        expiryDate: faker.date.future(),
-        documentNum: faker.string.alphanumeric(10).toUpperCase(),
-        status: faker.helpers.arrayElement(["pending", "withdrawn", "archived"]),
-      },
-    });
-
-    // Link issuance to receipts
-    const selectedReceipts = faker.helpers.arrayElements(receipts, {
-      min: 1,
-      max: 2,
-    });
-
-    for (const receipt of selectedReceipts) {
-      await prisma.issuanceReceipt.create({
-        data: {
-          issuanceId: issuance.id,
-          receiptId: receipt.id,
-        },
-      });
-    }
-
-    // Create IssuanceEndUser entries
-    const selectedEndUsers = faker.helpers.arrayElements(endUsers, {
-      min: 1,
-      max: 3,
-    });
-
-    for (const endUser of selectedEndUsers) {
-      const issuanceEndUser = await prisma.issuanceEndUser.create({
-        data: {
-          issuanceId: issuance.id,
-          endUserId: endUser.id,
-        },
-      });
-
-      // Create IssuanceEndUserItem entries
-      const selectedItems = faker.helpers.arrayElements(inventoryItems, {
-        min: 1,
-        max: 5,
-      });
-
-      for (const item of selectedItems) {
-        await prisma.issuanceEndUserItem.create({
-          data: {
-            issuanceEndUserId: issuanceEndUser.id,
-            inventoryId: item.id,
-            quantity: faker.number.int({ min: 1, max: 10 }),
-          },
-        });
-      }
-    }
-  }
-
-  console.log(`✅ Created 5 issuances with related records`);
-}
-
-
-async function seedItemTypes() {
-  console.log("📦 Seeding item types...");
-  const itemTypes = await prisma.itemType.createMany({
-    data: [
-      {
-        name: "Uniform",
-        sizeType: "apparel",
-      },
-      {
-        name: "Equipment",
-        sizeType: "none",
-      },
-      {
-        name: "Footwear",
-        sizeType: "numerical",
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  console.log(`✅ Created ${itemTypes.count} item types`);
-  return itemTypes;
-}
-
-async function seedInventory() {
-  console.log("📦 Seeding inventory...");
-  const inventoryItems: Inventory[] = [];
-
-  // Get all item types
-  const itemTypes = await prisma.itemType.findMany();
-  if (!itemTypes.length) {
-    throw new Error("No item types found. Please seed item types first.");
-  }
-
-  for (let i = 0; i < 10; i++) {
-    const randomItemType = faker.helpers.arrayElement(itemTypes);
-    const quantity = faker.number.int({ min: 10, max: 100 });
-    const price = parseFloat(faker.commerce.price({ min: 100, max: 1000 }));
-
-    // Set size based on item type's sizeType
-    let size: string | null = null;
-    if (randomItemType.sizeType === "apparel") {
-      size = faker.helpers.arrayElement(["XS", "S", "M", "L", "XL"]);
-    } else if (randomItemType.sizeType === "numerical") {
-      size = faker.helpers.arrayElement(["7", "8", "9", "10", "11"]);
-    }
-
-    inventoryItems.push(
-      await prisma.inventory.create({
-        data: {
-          itemName: faker.commerce.productName(),
-          location: faker.location.city(),
-          supplier: faker.company.name(),
-          quantity: quantity,
-          price: new Decimal(price),
-          amount: new Decimal(quantity * price),
-          unit: faker.helpers.arrayElement(["prs", "ea", "sets"]),
-          size: size,
-          status: faker.helpers.arrayElement(["active", "archived"]),
-          itemTypeId: randomItemType.id,
-        },
-      })
-    );
-  }
-
-  console.log(`✅ Created ${inventoryItems.length} inventory items`);
-  return inventoryItems;
 }
 
 async function main() {
@@ -279,13 +221,13 @@ async function main() {
   try {
     await seedRoles();
     await seedUsers();
-    await seedEndUsers();
-    await seedItemTypes();
-    await seedInventory();
-    await seedReceipts();
-    await seedIssuance();
-
-    console.log("✅ Seeding completed!");
+    const items = await seedItems();
+    const inventories = await seedInventories(items);
+    const endUsers = await seedEndUsers();
+    const issuanceDetails = await seedIssuanceDetails(inventories);
+    await seedIssuances(endUsers, issuanceDetails);
+    await seedReceipts(inventories);
+    console.log("✅ Seeding completed successfully!");
   } catch (error) {
     console.error("❌ Seeding failed:", error);
     throw error;

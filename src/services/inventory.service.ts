@@ -1,28 +1,91 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Inventory, ProductStatus, SizeType } from "@prisma/client";
 import prisma from "@/generic/prisma";
-import {
-  CreateInventoryInput,
-  InventoriesResponseType,
-  UpdateInventoryInput,
-} from "@/schema/inventory.schema";
-import { Decimal } from "@prisma/client/runtime/library";
+
+interface CreateInventoryDto {
+  name: string;
+  status?: ProductStatus;
+  unit?: string;
+  sizeType: SizeType;
+  location: string;
+  size?: string;
+  quantity?: string;
+  expiryDate?: Date;
+  price?: string;
+  amount?: string;
+}
+
+interface createItemTypeDto {
+  sizeType: SizeType;
+  name: string;
+  unit: string;
+}
+
+export interface InventoryResponseType {
+  data: Inventory[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
 
 export class InventoryService {
-  // Get inventory by ID
+  async create(data: CreateInventoryDto): Promise<Inventory> {
+    try {
+      const inventory = await prisma.$transaction(async (tx) => {
+        const existingInventory = await tx.inventory.findFirst({
+          where: { name: data.name },
+        });
+
+        if (existingInventory) {
+          throw new Error("Inventory with this name already exists");
+        }
+
+        // First create the item
+        const item = await tx.item.create({
+          data: {
+            item_name: data.name,
+            location: data.location || "",
+            size: data.size,
+            unit: data.unit,
+            quantity: data.quantity,
+            expiryDate: data.expiryDate,
+            price: data.price,
+            amount: data.amount,
+          },
+        });
+
+        // Then create the inventory with the item reference
+        const inventory = await tx.inventory.create({
+          data: {
+            name: data.name,
+            status: data.status || "active",
+            unit: data.unit,
+            sizeType: data.sizeType || "none",
+            itemId: item.id, // Connect to the created item
+          },
+          include: {
+            item: true,
+          },
+        });
+
+        return inventory;
+      });
+
+      return inventory;
+    } catch (error: any) {
+      throw new Error(`Failed to create inventory: ${error.message}`);
+    }
+  }
+
   async getInventoryById(id: string) {
     return await prisma.inventory.findUnique({
       where: {
         id,
       },
       include: {
-        issuanceItems: {
-          include: {
-            issuanceEndUser: {
-              select: {
-                endUser: true
-              }
-            }
-          }
-        },
+        receipts: true,
+        issuance: true,
+        item: true,
       },
     });
   }
@@ -32,160 +95,69 @@ export class InventoryService {
     pageSize: number = 10,
     search?: string,
     status?: string
-  ): Promise<InventoriesResponseType> {
-    const skip = (page - 1) * pageSize;
+  ): Promise<InventoryResponseType> {
+    try {
+      const skip = (page - 1) * pageSize;
 
-    const where = search
-      ? {
-          OR: [
-            { itemName: { contains: search, mode: "insensitive" } },
-            { location: { contains: search, mode: "insensitive" } },
-            { supplier: { contains: search, mode: "insensitive" } },
-          ],
-        }
-      : {};
+      const where = search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { unit: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {};
 
-    const [inventories, total] = await Promise.all([
-      prisma.inventory.findMany({
-        where: { ...where, status } as never,
-        skip,
-        take: pageSize,
-        include: {
-          issuanceItems: {
-            include: {
-              issuanceEndUser: {
-                select: {
-                  endUser: true
-                }
-              }
-            }
+      const [inventories, total] = await Promise.all([
+        prisma.inventory.findMany({
+          where: { ...where, status } as any,
+          skip,
+          take: pageSize,
+          include: {
+            receipts: true,
+            issuance: true,
+            item: true,
           },
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-      }),
-      prisma.inventory.count({ where: where as never }),
-    ]);
+          orderBy: {
+            createdAt: "desc",
+          },
+        }),
+        prisma.inventory.count({ where: where as any }),
+      ]);
 
-    return {
-      data: inventories as never,
-      total,
-      currentPage: page,
-      totalPages: Math.ceil(total / pageSize),
-    };
-  }
-
-  async archiveInventory(id: string) {
-    try {
-      const inventory = await prisma.inventory.update({
-        where: {
-          id,
-        },
-        data: {
-          status: "archived",
-        },
-      });
-
-      return inventory;
-    } catch (error) {
-      throw new Error(`Failed to archive inventory: ${error}`);
+      return {
+        data: inventories,
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get inventories: ${error.message}`);
     }
   }
 
-  async unarchiveInventory(id: string) {
-    try {
-      const inventory = await prisma.inventory.update({
-        where: {
-          id,
-        },
-        data: {
-          status: "active",
-        },
-      });
-
-      return inventory;
-    } catch (error) {
-      throw new Error(`Failed to unarchive inventory: ${error}`);
-    }
+  async issuanceInventories() {
+    return await prisma.inventory.findMany({});
   }
 
-  async createInventory(data: CreateInventoryInput) {
-    try {
-      // Get item type
-      const itemType = await prisma.itemType.findFirst({
-        where: {
-          OR: [
-            { name: { contains: data.item_type_name, mode: "insensitive" } },
-          ]
-        }
-      });
-      const inventory = await prisma.inventory.create({
-        data: {
-          itemName: data.item_name,
-          location: data.location,
-          supplier: data.supplier,
-          quantity: data.quantity,
-          price: new Decimal(data.price),
-          amount: new Decimal(data.amount),
-          size: data.size,
-          status: data.status as "active" | "archived",
-          itemType: itemType ? { connect: { id: itemType.id } } : { create: { name: data.item_name } },
-        },
-      });
-
-      return inventory;
-    } catch (error) {
-      throw new Error(`Failed to create inventory: ${error}`);
-    }
-  }
-
-  async updateInventory(id: string, data: UpdateInventoryInput) {
-    try {
-      const inventory = await prisma.inventory.update({
-        where: {
-          id,
-        },
-        data: {
-          itemName: data.item_name,
-          location: data.location,
-          supplier: data.supplier,
-          quantity: data.quantity,
-          price: data.price ? new Decimal(data.price) : undefined,
-          amount: data.amount ? new Decimal(data.amount) : undefined,
-          size: String(data.size),
-          status: data.status as "active" | "archived",
-        },
-      });
-
-      return inventory;
-    } catch (error) {
-      throw new Error(`Failed to update inventory: ${error}`);
-    }
-  }
-
-  async deleteInventory(id: string) {
-    return await prisma.inventory.delete({
-      where: {
-        id,
+  async createItemType(data: createItemTypeDto) {
+    return await prisma.inventory.create({
+      data: {
+        sizeType: data.sizeType,
+        name: data.name,
+        unit: data.unit
       },
     });
   }
 
-  async inventoryIssuance() {
-    return await prisma.inventory.findMany({
-      where: {},
-      select: {
-        id: true,
-        itemName: true,
-        quantity: true,
-        amount: true,
-        price: true,
-        size: true,
-        supplier: true,
-        location: true,
-        unit: true,
-      },
+  async fetchItemTypes() {
+    return (await prisma.inventory.findMany()).map(item => {
+      return {
+        id: item.id,
+        name: item.name,
+        sizeType: item.sizeType,
+        unit: item.unit
+      };
     });
   }
 }

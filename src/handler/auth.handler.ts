@@ -73,9 +73,9 @@ export const updateUser = async (c: Context & { user: User }) => {
   const currentUser = c.user;
   const data: UpdateUserRequest = await c.req.json<UpdateUserRequest>();
 
-  // If password update is requested, validate current password and new password
+  
   if (data.password || data.current_password || data.confirm_password) {
-    // Check if all password fields are provided
+    
     if (!data.current_password || !data.password || !data.confirm_password) {
       return c.json(
         { error: "All password fields are required for password update" },
@@ -83,7 +83,7 @@ export const updateUser = async (c: Context & { user: User }) => {
       );
     }
 
-    // Verify current password
+    
     const isValidPassword = await argon2.verify(
       currentUser.password,
       data.current_password
@@ -92,12 +92,12 @@ export const updateUser = async (c: Context & { user: User }) => {
       return c.json({ error: "Current password is incorrect" }, 400);
     }
 
-    // Check if new password matches confirmation
+    
     if (data.password !== data.confirm_password) {
       return c.json({ error: "New passwords do not match" }, 400);
     }
 
-    // Hash new password
+    
     data.password = await argon2.hash(data.password);
   }
 

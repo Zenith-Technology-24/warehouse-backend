@@ -5,7 +5,7 @@ import { routes } from "./routes/route";
 import { getRandomMessage } from "./generic/egg";
 import { cors } from "hono/cors";
 const app = new OpenAPIHono();
-const api = new OpenAPIHono(); // Create a new instance for the API routes
+const api = new OpenAPIHono(); 
 
 app.use(
   "/api/*",

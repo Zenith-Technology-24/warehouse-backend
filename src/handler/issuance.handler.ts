@@ -7,7 +7,7 @@ const issuanceService = new IssuanceService();
 const inventoryService = new InventoryService();
 
 export const getIssuanceById = async (c: Context) => {
-  // Get user by id
+  
   const id = c.req.param("id");
   return c.json(await issuanceService.getIssuanceById(id), 200);
 };
@@ -24,23 +24,20 @@ export const getIssuances = async (c: Context) => {
   );
 };
 
-export const createIssuance = async (c: Context & { user: User }) => {
-  // Create user
+export const createIssuance = async (c: Context & { user: User }) => {  
   const data = await c.req.json();
 
-  // get authentication user
   const user = c.user;
-
-  return c.json(await issuanceService.createIssuance(data, user), 201);
+  return c.json(await issuanceService.create(data, user), 201);
 };
 
 export const updateIssuance = async (c: Context) => {
-  // Update user
+  
   const id = c.req.param("id");
   const data = await c.req.json();
-  return c.json(await issuanceService.updateIssuance(id, data), 201);
+  return c.json(await issuanceService.update(id, data), 201);
 };
 
 export const getInventoryIssuance = async (c: Context) => {
-  return c.json(await inventoryService.inventoryIssuance(), 200);
+  return c.json(await inventoryService.issuanceInventories(), 200);
 }

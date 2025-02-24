@@ -1,290 +1,217 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Issuance, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
-import {
-  CreateIssuanceInput,
-  UpdateIssuanceInput,
-} from "@/schema/issuance.schema";
-import { Issuance, User } from "@prisma/client";
+
+interface InventoryPayload {
+  id?: string;
+  name: string;
+  sizeType: "none" | "apparrel" | "numerical";
+  issuance_date: Date;
+  validity_date: Date;
+  item: {
+    id?: string;
+    item_name: string;
+    location: string;
+    size?: string;
+    unit?: string;
+    quantity?: string;
+    expiryDate?: Date;
+    price?: string;
+    amount?: string;
+  };
+}
+
+interface EndUserPayload {
+  id?: string;
+  name: string;
+  inventory?: InventoryPayload[];
+}
+
+interface CreateIssuanceDto {
+  issuanceDirective?: string;
+  validityDate: Date;
+  status?: ProductStatus;
+  endUsers?: EndUserPayload[];
+}
+
+export interface IssuanceResponseType {
+  data: any[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
 
 export class IssuanceService {
-  async createIssuance(data: CreateIssuanceInput, user: User) {
+  async create(data: CreateIssuanceDto, user: User): Promise<Issuance> {
     try {
-      const { endUsers, ...issuanceData } = data;
-      let issuanceEndUser = null;
-      const issuance = await prisma.issuance.create({
-        data: {
-          directiveNo: issuanceData.directive_no || "NKWN",
-          documentNum: issuanceData.document_no || "NKWN",
-          issuanceDate: new Date(),
-          expiryDate: issuanceData.expiry_date || new Date(),
-          user: {
-            connect: {
-              id: user.id,
+      const issuance = await prisma.$transaction(async (tx) => {
+        const issuance = await tx.issuance.create({
+          data: {
+            issuanceDirective: data.issuanceDirective,
+            validityDate: data.validityDate,
+            status: data.status || "pending",
+            user: {
+              connect: {
+                id: user.id,
+              },
             },
-          },
-        },
-      });
 
-      for (const endUser of endUsers || []) {
-        console.log("Searching for user with:", {
-          name: endUser.name,
-          id: endUser.id,
-        });
-        let user = await prisma.endUser.findFirst({
-          where: {
-            OR: [
-              { name: { equals: endUser.name } },
-              { id: { equals: endUser.id } },
-            ],
           },
         });
-        console.log("Found user:", user);
-        // If it doesn't exist, create new end user
-        if (!user) {
-          user = await prisma.endUser.create({
-            data: {
-              name: endUser.name || "NKWN",
-            },
-          });
 
-          // Create new end user items
-          issuanceEndUser = await prisma.issuanceEndUser.create({
-            data: {
-              issuance: {
-                connect: { id: issuance.id },
-              },
-              endUser: {
-                connect: { id: user.id },
-              },
-            },
-          });
-        } else {
-          issuanceEndUser = await prisma.issuanceEndUser.create({
-            data: {
-              issuance: {
-                connect: { id: issuance.id },
-              },
-              endUser: {
-                connect: { id: user.id },
-              },
-            },
-          });
-        }
-
-        // Create IssuanceEndUserItem entries
-        for (const item of endUser.items) {
-          // Check if inventory exists
-          let inventoryItem = await prisma.inventory.findUnique({
-            where: { id: item.id },
-          });
-
-          const itemType = await prisma.itemType.findFirst({
-            where: {
-              OR: [
-                { id: { equals: item.item_type_id } },
-                { name: { equals: item.item_name } },
-              ],
-            },
-          });
-
-          if (!inventoryItem) {
-            // Create new inventory item if it doesn't exist
-            inventoryItem = await prisma.inventory.create({
+        if (data.endUsers && data.endUsers.length > 0) {
+          for (const endUser of data.endUsers) {
+            const createdEndUser = await tx.endUser.create({
               data: {
-                itemName: item.item_name || "Unknown Item",
-                location: item.location || "Default Location",
-                supplier: item.supplier || "Default Supplier",
-                quantity: item.quantity || 0,
-                price: item.price || 0,
-                amount: item.amount || 0,
-                size: item.size,
-                unit: item.unit || "ea",
-                status: item.status || "active",
-                itemType: itemType
-                  ? { connect: { id: itemType.id } }
-                  : { create: { name: item.item_name || "Unknown Item" } },
-              },
-            });
-          }
-
-          await prisma.issuanceEndUserItem.create({
-            data: {
-              issuanceEndUser: {
-                connect: { id: issuanceEndUser.id },
-              },
-              inventory: {
-                connect: { id: inventoryItem.id },
-              },
-              quantity: item.quantity || 0,
-            },
-          });
-        }
-      }
-
-      return await prisma.issuance.findUnique({
-        where: { id: issuance.id },
-        include: {
-          endUsers: {
-            include: {
-              endUser: true,
-              items: {
-                include: {
-                  inventory: true,
+                name: endUser.name,
+                Issuance: {
+                  connect: { id: issuance.id },
                 },
               },
-            },
-          },
-          user: true,
-        },
+            });
+
+            if (endUser.inventory && endUser.inventory.length > 0) {
+              for (const inventoryItem of endUser.inventory) {
+                const item = await tx.item.create({
+                  data: {
+                    item_name: inventoryItem.item.item_name,
+                    location: inventoryItem.item.location,
+                    size: inventoryItem.item.size,
+                    unit: inventoryItem.item.unit,
+                    quantity: inventoryItem.item.quantity,
+                    expiryDate: inventoryItem.item.expiryDate,
+                    price: inventoryItem.item.price,
+                    amount: inventoryItem.item.amount,
+                  },
+                });
+
+                const inventory = await tx.inventory.create({
+                  data: {
+                    name: inventoryItem.name,
+                    sizeType: inventoryItem.sizeType,
+                    item: {
+                      connect: {
+                        id: item.id,
+                      },
+                    },
+                    endUser: {
+                      connect: { id: createdEndUser.id },
+                    },
+                  },
+                });
+
+                await tx.issuanceDetail.create({
+                  data: {
+                    quantity: inventoryItem.item.quantity || "0",
+                    issuanceId: issuance.id,
+                    items: {
+                      connect: { id: inventory.id },
+                    },
+                    EndUser: {
+                      connect: { id: createdEndUser.id },
+                    },
+                    Issuance: {
+                      connect: { id: issuance.id },
+                    },
+                  },
+                });
+              }
+            }
+          }
+        }
+
+        return issuance;
       });
-    } catch (error) {
-      throw new Error(`Failed to create issuance: ${error}`);
+
+      return issuance;
+    } catch (error: any) {
+      throw new Error(`Failed to create issuance: ${error.message}`);
     }
   }
 
-  async updateIssuance(id: string, data: UpdateIssuanceInput) {
+  async getIssuances(
+    page: number = 1,
+    pageSize: number = 10,
+    search?: string,
+    status?: string
+  ): Promise<IssuanceResponseType> {
     try {
-      const { endUsers, ...issuanceData } = data;
-      if (Object.keys(data).length === 1 && "status" in data) {
-        const updatedIssuance = await prisma.issuance.update({
-          where: { id },
-          data: { status: data.status },
+      const skip = (page - 1) * pageSize;
+
+      const where = search
+        ? {
+            OR: [
+              { issuanceDirective: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {};
+
+      const [issuances, total] = await Promise.all([
+        prisma.issuance.findMany({
+          where: { ...where, status: status as ProductStatus } as never,
+          skip,
+          take: pageSize,
           include: {
             endUsers: {
               include: {
-                endUser: true,
-                items: {
-                  include: {
-                    inventory: true,
+                inventories: {
+                  select: {
+                    quantity: true,
+                    status: true,
+                    receiptRef: true,
+                    items: {
+                      select: {
+                        name: true,
+                        status: true,
+                        item: {
+                          select: {
+                            item_name: true,
+                            quantity: true,
+                            price: true,
+                            amount: true,
+                            unit: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
             },
             user: true,
           },
-        });
-        return updatedIssuance;
-      }
-      let issuanceEndUser = null;
-      const updatedIssuance = await prisma.issuance.update({
-        where: { id },
-        data: {
-          directiveNo: issuanceData.directive_no,
-          documentNum: issuanceData.document_no,
-          expiryDate: issuanceData.expiry_date,
-        },
-      });
-
-      await prisma.issuanceEndUserItem.deleteMany({
-        where: {
-          issuanceEndUser: {
-            issuanceId: id,
+          orderBy: {
+            createdAt: "desc",
           },
-        },
-      });
+        }),
+        prisma.issuance.count({ where: where as never }),
+      ]);
 
-      // Then delete IssuanceEndUser records
-      await prisma.issuanceEndUser.deleteMany({
-        where: { issuanceId: id },
-      });
+      return {
+        data: issuances,
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get issuances: ${error.message}`);
+    }
+  }
 
-      for (const endUser of endUsers || []) {
-        let user = await prisma.endUser.findFirst({
-          where: {
-            OR: [
-              { name: { equals: endUser.name } },
-              { id: { equals: endUser.id } },
-            ],
-          },
-        });
-        if (!user) {
-          user = await prisma.endUser.create({
-            data: {
-              name: endUser.name || "NKWN",
-            },
-          });
-
-          // Create new end user items
-          issuanceEndUser = await prisma.issuanceEndUser.create({
-            data: {
-              issuance: {
-                connect: { id: updatedIssuance.id },
-              },
-              endUser: {
-                connect: { id: user.id },
-              },
-            },
-          });
-        } else {
-          issuanceEndUser = await prisma.issuanceEndUser.create({
-            data: {
-              issuance: {
-                connect: { id: updatedIssuance.id },
-              },
-              endUser: {
-                connect: { id: user.id },
-              },
-            },
-          });
-        }
-
-        for (const item of endUser.items) {
-          // Check if inventory exists
-          let inventoryItem = await prisma.inventory.findUnique({
-            where: { id: item.id },
-          });
-
-          // Find the item type if it exists
-          const itemType = await prisma.itemType.findFirst({
-            where: {
-              OR: [
-                { id: { equals: item.item_type_id } },
-                { name: { equals: item.item_name } },
-              ],
-            },
-          });
-
-          if (!inventoryItem) {
-            inventoryItem = await prisma.inventory.create({
-              data: {
-                itemName: item.item_name || "Unknown Item",
-                location: item.location || "Default Location",
-                supplier: item.supplier || "Default Supplier",
-                quantity: item.quantity || 0,
-                price: item.price || 0,
-                amount: item.amount || 0,
-                size: item.size,
-                unit: item.unit || "ea",
-                status: item.status || "active",
-                itemType: itemType
-                  ? { connect: { id: itemType.id } }
-                  : { create: { name: item.item_name || "Unknown Item" } },
-              },
-            });
-          }
-
-          await prisma.issuanceEndUserItem.create({
-            data: {
-              issuanceEndUser: {
-                connect: { id: issuanceEndUser.id },
-              },
-              inventory: {
-                connect: { id: inventoryItem.id },
-              },
-              quantity: item.quantity || 0,
-            },
-          });
-        }
-      }
-
+  async getIssuanceById(id: string) {
+    try {
       return await prisma.issuance.findUnique({
         where: { id },
         include: {
           endUsers: {
             include: {
-              endUser: true,
-              items: {
+              inventories: {
                 include: {
-                  inventory: true,
+                  items: {
+                    include: {
+                      item: true,
+                    },
+                  },
                 },
               },
             },
@@ -292,96 +219,8 @@ export class IssuanceService {
           user: true,
         },
       });
-    } catch (error) {
-      throw new Error(`Failed to update issuance: ${error}`);
+    } catch (error: any) {
+      throw new Error(`Failed to get issuance: ${error.message}`);
     }
   }
-
-  async getIssuanceById(id: string) {
-    return await prisma.issuance.findUnique({
-      where: { id },
-      include: {
-        endUsers: {
-          include: {
-            endUser: true,
-            items: {
-              include: {
-                inventory: true,
-              },
-            },
-          },
-        },
-        user: {
-          select: {
-            lastname: true,
-            firstname: true,
-          },
-        },
-      },
-    });
-  }
-  async getIssuances(
-    page: number = 1,
-    pageSize: number = 10,
-    search?: string,
-    status?: string
-  ): Promise<Issuance> {
-    const skip = (page - 1) * pageSize;
-
-    const where = search
-      ? {
-          OR: [{ directiveNo: { contains: search, mode: "insensitive" } }],
-        }
-      : {};
-
-    const [issuances, total] = await Promise.all([
-      prisma.issuance.findMany({
-        where: {
-          ...where,
-          status: status === "all" ? undefined : status,
-        } as never,
-        skip,
-        take: pageSize,
-        include: {
-          endUsers: {
-            include: {
-              endUser: true,
-              items: {
-                include: {
-                  inventory: true,
-                },
-              },
-            },
-          },
-          user: {
-            select: {
-              lastname: true,
-              firstname: true,
-              username: true,
-            },
-          },
-        },
-      }),
-      prisma.issuance.count({ where: where as never }),
-    ]);
-
-    return {
-      // @ts-expect-error malformed types
-      data: issuances,
-      total,
-      currentPage: page,
-      totalPages: Math.ceil(total / pageSize),
-    };
-  }
-
-  // async withdrawAll(id: string) {
-  //   try {
-  //     // Get all the inventory items under the issuance
-      
-
-  //     return [];
-  //   } catch (error) {
-  //     throw new Error(`Failed to withdraw issuance: ${error}`);
-  //   }
-  // }
 }
