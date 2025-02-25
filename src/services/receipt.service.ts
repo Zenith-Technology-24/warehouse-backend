@@ -41,12 +41,12 @@ export class ReceiptService {
             source: data.source,
             issuanceDirective: data.issuanceDirective,
             receiptDate: data.receipt_date,
-            status: 'active',
+            status: "active",
             user: {
               connect: {
                 id: user.id,
-              }
-            }
+              },
+            },
           },
         });
 
@@ -211,8 +211,22 @@ export class ReceiptService {
         },
         include: {
           inventory: {
-            include: {
-              item: true,
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              item: {
+                select: {
+                  location: true,
+                  size: true,
+                  quantity: true,
+                  expiryDate: true,
+                  item_name: true,
+                  unit: true,
+                  price: true,
+                  amount: true,
+                },
+              },
             },
           },
           user: true,
@@ -241,72 +255,82 @@ export class ReceiptService {
           }
         : {};
 
-        const [receipts, total] = await Promise.all([
-          prisma.receipt.findMany({
-            where: { ...where, status } as never,
-            skip,
-            take: pageSize,
-            include: {
-              inventory: {
-                select: {
-                  id: true,
-                  name: true,
-                  status: true,
-                  
-                  item: {
-                    select: {
-                      location: true,
-                      size: true,
-                      quantity: true,
-                      expiryDate: true,
-                      item_name: true,
-                      unit: true,
-                      price: true,
-                      amount: true
-                    }
-                  }
+      const [receipts, total] = await Promise.all([
+        prisma.receipt.findMany({
+          where: { ...where, status } as never,
+          skip,
+          take: pageSize,
+          include: {
+            inventory: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                item: {
+                  select: {
+                    location: true,
+                    size: true,
+                    quantity: true,
+                    expiryDate: true,
+                    item_name: true,
+                    unit: true,
+                    price: true,
+                    amount: true,
+                  },
                 },
               },
-              user: true,
             },
-            orderBy: {
-              createdAt: "desc",  
-            },
-          }),
-          prisma.receipt.count({ where: where as never }),
-        ]);
-    
-        // Add quantity tallies for each receipt
-        const receiptsWithTallies = receipts.map(receipt => {
-          const inventoryTallies = receipt.inventory.reduce((acc, inv) => {
-            const quantity = parseInt(inv.item?.quantity || '0');
+            user: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        }),
+        prisma.receipt.count({ where: where as never }),
+      ]);
+
+      // Add quantity tallies for each receipt
+      const receiptsWithTallies = receipts.map((receipt) => {
+        const inventoryTallies = receipt.inventory.reduce(
+          (acc, inv) => {
+            const quantity = parseInt(inv.item?.quantity || "0");
             return {
               totalQuantity: acc.totalQuantity + quantity,
-              totalAmount: acc.totalAmount + (parseFloat(inv.item?.amount || '0')),
-              items: [...acc.items, {
-                name: inv.name,
-                quantity: quantity,
-                amount: parseFloat(inv.item?.amount || '0')
-              }]
+              totalAmount:
+                acc.totalAmount + parseFloat(inv.item?.amount || "0"),
+              items: [
+                ...acc.items,
+                {
+                  name: inv.name,
+                  quantity: quantity,
+                  amount: parseFloat(inv.item?.amount || "0"),
+                },
+              ],
             };
-          }, {
+          },
+          {
             totalQuantity: 0,
             totalAmount: 0,
-            items: [] as Array<{name: string; quantity: number; amount: number}>
-          });
-    
-          return {
-            ...receipt,
-            tallies: inventoryTallies
-          };
-        });
-    
+            items: [] as Array<{
+              name: string;
+              quantity: number;
+              amount: number;
+            }>,
+          }
+        );
+
         return {
-          data: receiptsWithTallies,
-          total,
-          currentPage: page,
-          totalPages: Math.ceil(total / pageSize),
+          ...receipt,
+          tallies: inventoryTallies,
         };
+      });
+
+      return {
+        data: receiptsWithTallies,
+        total,
+        currentPage: page,
+        totalPages: Math.ceil(total / pageSize),
+      };
     } catch (error: any) {
       throw new Error(`Failed to get receipts: ${error.message}`);
     }
