@@ -114,6 +114,17 @@ export class ReceiptService {
       }
 
       const updatedReceipt = await prisma.$transaction(async (tx) => {
+        // First, disconnect all existing inventory relationships
+        await tx.receipt.update({
+          where: { id },
+          data: {
+            inventory: {
+              disconnect: existingReceipt.inventory.map(inv => ({ id: inv.id }))
+            }
+          }
+        });
+
+        // Update the receipt basic info
         const receipt = await tx.receipt.update({
           where: { id },
           data: {
@@ -125,7 +136,7 @@ export class ReceiptService {
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
             if (inventoryItem.id) {
-              // If inventory ID exists, just update the connection
+              // If inventory ID exists, connect it to the receipt
               await tx.inventory.update({
                 where: { id: inventoryItem.id },
                 data: {
@@ -158,11 +169,14 @@ export class ReceiptService {
                 },
               });
 
-              // Update inventory
+              // Update inventory and connect to receipt
               await tx.inventory.update({
                 where: { id: existingInventory.id },
                 data: {
                   sizeType: inventoryItem.sizeType,
+                  receipts: {
+                    connect: { id: receipt.id },
+                  },
                 },
               });
             } else {
