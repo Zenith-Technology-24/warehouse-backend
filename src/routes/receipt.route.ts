@@ -1,4 +1,4 @@
-import { createReceipts, getReceiptById, getReceipts, updateReceipt } from "@/handler/receipt.handler";
+import { archiveReceipt, createReceipts, getReceiptById, getReceipts, unArchiveReceipt, updateReceipt } from "@/handler/receipt.handler";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
@@ -8,6 +8,9 @@ receipt.use(authMiddleware as never);
 receipt.get('/', getReceipts);
 receipt.get('/:id', getReceiptById);
 receipt.post('/', createReceipts as never);
+receipt.put('/archive/:id', archiveReceipt);
+receipt.put('/unarchive/:id', unArchiveReceipt);
 receipt.put('/:id', updateReceipt);
+
 
 export default receipt;

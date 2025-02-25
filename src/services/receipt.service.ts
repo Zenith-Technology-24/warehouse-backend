@@ -364,4 +364,31 @@ export class ReceiptService {
       throw new Error(`Failed to get receipts: ${error.message}`);
     }
   }
+
+  // Archive and Unarchive methods
+  async archive(id: string): Promise<Receipt> {
+    try {
+      return await prisma.receipt.update({
+        where: { id },
+        data: {
+          status: "archived",
+        },
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to archive receipt: ${error.message}`);
+    }
+  }
+
+  async unArchive(id: string): Promise<Receipt> {
+    try {
+      return await prisma.receipt.update({
+        where: { id },
+        data: {
+          status: "active",
+        },
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to unarchive receipt: ${error.message}`);
+    }
+  }
 }

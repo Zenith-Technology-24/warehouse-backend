@@ -35,3 +35,15 @@ export const updateReceipt = async (c: Context) => {
 
   return c.json(await receiptService.update(id, data), 201);
 }
+
+export const archiveReceipt = async (c: Context) => {
+  const id = c.req.param("id");
+
+  return c.json(await receiptService.archive(id), 201);
+}
+
+export const unArchiveReceipt = async (c: Context) => {
+  const id = c.req.param("id");
+
+  return c.json(await receiptService.unArchive(id), 201);
+}
