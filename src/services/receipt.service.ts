@@ -130,6 +130,7 @@ export class ReceiptService {
           data: {
             source: data.source,
             issuanceDirective: data.issuanceDirective,
+            receiptDate: data.receipt_date,
           },
         });
 
