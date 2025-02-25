@@ -245,7 +245,13 @@ export class ReceiptService {
               },
             },
           },
-          user: true,
+          user: {
+            select: {
+              lastname: true,
+              firstname: true,
+              email: true,
+            }
+          },
         },
       });
     } catch (error: any) {
@@ -297,7 +303,13 @@ export class ReceiptService {
                 },
               },
             },
-            user: true,
+            user: {
+              select: {
+                lastname: true,
+                firstname: true,
+                email: true,
+              }
+            },
           },
           orderBy: {
             createdAt: "desc",
