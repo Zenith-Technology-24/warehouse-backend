@@ -215,6 +215,7 @@ export class ReceiptService {
               id: true,
               name: true,
               status: true,
+              sizeType: true,
               item: {
                 select: {
                   location: true,
@@ -266,6 +267,7 @@ export class ReceiptService {
                 id: true,
                 name: true,
                 status: true,
+                sizeType: true,
                 item: {
                   select: {
                     location: true,
