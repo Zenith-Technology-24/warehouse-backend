@@ -252,13 +252,15 @@ export class ReceiptService {
                   id: true,
                   name: true,
                   status: true,
-                  unit: true,
+                  
                   item: {
                     select: {
                       location: true,
                       size: true,
                       quantity: true,
+                      expiryDate: true,
                       item_name: true,
+                      unit: true,
                       price: true,
                       amount: true
                     }
