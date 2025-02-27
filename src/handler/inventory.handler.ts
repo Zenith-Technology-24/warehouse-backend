@@ -36,14 +36,14 @@ export const getItemTypes = async (c: Context) => {
 }
 
 
-// export const archiveInventory = async (c: Context) => {
-//     const id = c.req.param("id");
+export const archiveInventory = async (c: Context) => {
+    const id = c.req.param("id");
     
-//     return c.json(await inventoryService.archiveInventory(id), 200);
-// }
+    return c.json(await inventoryService.archiveInventory(id), 200);
+}
 
-// export const unarchiveInventory = async (c: Context) => {
-//     const id = c.req.param("id");
+export const unarchiveInventory = async (c: Context) => {
+    const id = c.req.param("id");
     
-//     return c.json(await inventoryService.unarchiveInventory(id), 200);
-// }
+    return c.json(await inventoryService.unarchiveInventory(id), 200);
+}

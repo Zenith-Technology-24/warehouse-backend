@@ -160,4 +160,26 @@ export class InventoryService {
       };
     });
   }
+
+  async archiveInventory(id: string) {
+    return await prisma.inventory.update({
+      where: {
+        id,
+      },
+      data: {
+        status: "archived",
+      },
+    });
+  }
+
+  async unarchiveInventory(id: string) {
+    return await prisma.inventory.update({
+      where: {
+        id
+      },
+      data: {
+        status: "active"
+      }
+    });
+  }
 }
