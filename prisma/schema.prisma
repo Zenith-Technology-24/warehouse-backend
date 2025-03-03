@@ -9,7 +9,7 @@ datasource db {
 
 model Inventory {
   id       String        @id @unique @default(uuid())
-  name     String
+  name     String        @unique
   sizeType SizeType      @default(none)
   status   ProductStatus @default(active)
   unit     String?

@@ -40,7 +40,6 @@ export class InventoryService {
           throw new Error("Inventory with this name already exists");
         }
 
-        // First create the item
         const item = await tx.item.create({
           data: {
             item_name: data.name,
