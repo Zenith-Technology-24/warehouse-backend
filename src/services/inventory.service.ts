@@ -54,14 +54,13 @@ export class InventoryService {
           },
         });
 
-        // Then create the inventory with the item reference
         const inventory = await tx.inventory.create({
           data: {
             name: data.name,
             status: data.status || "active",
             unit: data.unit,
             sizeType: data.sizeType || "none",
-            itemId: item.id, // Connect to the created item
+            itemId: item.id,
           },
           include: {
             item: true,
@@ -78,16 +77,148 @@ export class InventoryService {
   }
 
   async getInventoryById(id: string) {
-    return await prisma.inventory.findUnique({
-      where: {
-        id,
-      },
-      include: {
-        receipts: true,
-        issuance: true,
-        item: true,
-      },
-    });
+    try {
+      // First get the existing inventory by ID
+      const existingInventory = await prisma.inventory.findUnique({
+        where: { id },
+      });
+
+      if (!existingInventory) return null;
+
+      // Get all inventories with the same name
+      const inventories = await prisma.inventory.findMany({
+        where: {
+          name: existingInventory.name,
+        },
+        include: {
+          receipts: {
+            include: {
+              item: true, // Include items directly from receipts
+              user: {
+                select: {
+                  firstname: true,
+                  lastname: true,
+                },
+              },
+            },
+          },
+          issuance: {
+            select: {
+              quantity: true,
+              createdAt: true,
+              issuanceDirective: true,
+              status: true,
+              issuanceDate: true,
+              inventory: {
+                select: {
+                  quantity: true,
+                  createdAt: true,
+                  item: {
+                    select: {
+                      amount: true,
+                      unit: true,
+                      size: true,
+                    },
+                  },
+                },
+              },
+              issuanceDetail: {
+                select: {
+                  createdAt: true,
+                  status: true,
+                },
+              },
+            },
+          },
+          item: true,
+        },
+      });
+
+      if (inventories.length === 0) return null;
+
+      // Calculate quantity summaries and size quantities across all inventories
+      const quantitySummary = {
+        totalQuantity: 0,
+        availableQuantity: 0,
+        pendingQuantity: 0,
+      };
+
+      const sizeQuantities: Record<string, number> = {};
+
+      // Process all inventories with the same name
+      inventories.forEach((inventory) => {
+        // Process receipts and their items
+        if (inventory.receipts && inventory.receipts.length > 0) {
+          inventory.receipts.forEach((receipt) => {
+            // Access items directly from receipt
+            if (receipt.item && receipt.item.length > 0) {
+              receipt.item.forEach((item) => {
+                const quantity = parseInt(item.quantity || "0", 10);
+                const size = item.size || "No Size";
+
+                if (receipt.status === "pending") {
+                  quantitySummary.pendingQuantity += quantity;
+                } else {
+                  quantitySummary.totalQuantity += quantity;
+                  quantitySummary.availableQuantity += quantity;
+                }
+
+                if (receipt.status !== "pending") {
+                  if (!sizeQuantities[size]) {
+                    sizeQuantities[size] = 0;
+                  }
+                  sizeQuantities[size] += quantity;
+                }
+              });
+            }
+          });
+        }
+
+        // Account for issuances
+        if (inventory.issuance && inventory.issuance.length > 0) {
+          inventory.issuance.forEach((issuance) => {
+            const quantity = parseInt(issuance.quantity || "0", 10);
+            const size = issuance.inventory?.item?.size || "No Size";
+
+            if (issuance.status === "pending") {
+              // Pending issuances don't affect available quantity
+              quantitySummary.pendingQuantity += quantity;
+            } else {
+              // For issued items, subtract from available quantity
+              quantitySummary.totalQuantity -= quantity;
+              quantitySummary.availableQuantity -= quantity;
+            }
+
+            // Adjust the size quantities for completed issuances
+            if (issuance.status !== "pending" && sizeQuantities[size]) {
+              sizeQuantities[size] -= quantity;
+              if (sizeQuantities[size] < 0) sizeQuantities[size] = 0;
+            }
+          });
+        }
+      });
+
+      const sizeStockLevels: Record<string, string> = {};
+      Object.entries(sizeQuantities).forEach(([size, quantity]) => {
+        if (quantity <= 30) {
+          sizeStockLevels[size] = "Low Stock";
+        } else if (quantity <= 98) {
+          sizeStockLevels[size] = "Mid Stock";
+        } else {
+          sizeStockLevels[size] = "High Stock";
+        }
+      });
+
+      return {
+        ...inventories.find((inv) => inv.id === id), // Return the originally requested inventory
+        allRelatedInventories: inventories, // Include all related inventories if needed
+        quantitySummary,
+        sizeQuantities,
+        sizeStockLevels,
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get inventory by ID: ${error.message}`);
+    }
   }
 
   async getInventories(
@@ -108,11 +239,9 @@ export class InventoryService {
           }
         : {};
 
-      const [inventories, total] = await Promise.all([
+      const [inventories] = await Promise.all([
         prisma.inventory.findMany({
           where: { ...where, status } as any,
-          skip,
-          take: pageSize,
           include: {
             receipts: true,
             issuance: true,
@@ -122,14 +251,46 @@ export class InventoryService {
             createdAt: "desc",
           },
         }),
-        prisma.inventory.count({ where: where as any }),
       ]);
 
+      const consolidatedMap = new Map<string, any>();
+
+      inventories.forEach((inventory) => {
+        const name = inventory.name;
+
+        if (consolidatedMap.has(name)) {
+          const existing = consolidatedMap.get(name);
+
+          if (inventory.item && existing.item) {
+            const existingQuantity = parseInt(
+              existing.item.quantity || "0",
+              10
+            );
+            const newQuantity = parseInt(inventory.item.quantity || "0", 10);
+            existing.item.quantity = (
+              existingQuantity + newQuantity
+            ).toString();
+          }
+
+          existing.receipts = [...existing.receipts, ...inventory.receipts];
+
+          existing.issuance = [...existing.issuance, ...inventory.issuance];
+        } else {
+          consolidatedMap.set(name, { ...inventory });
+        }
+      });
+
+      const consolidatedArray = Array.from(consolidatedMap.values());
+      const paginatedInventories = consolidatedArray.slice(
+        skip,
+        skip + pageSize
+      );
+
       return {
-        data: inventories,
-        total,
+        data: paginatedInventories,
+        total: consolidatedMap.size,
         currentPage: page,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages: Math.ceil(consolidatedMap.size / pageSize),
       };
     } catch (error: any) {
       throw new Error(`Failed to get inventories: ${error.message}`);
@@ -145,18 +306,18 @@ export class InventoryService {
       data: {
         sizeType: data.sizeType,
         name: data.name,
-        unit: data.unit
+        unit: data.unit,
       },
     });
   }
 
   async fetchItemTypes() {
-    return (await prisma.inventory.findMany()).map(item => {
+    return (await prisma.inventory.findMany()).map((item) => {
       return {
         id: item.id,
         name: item.name,
         sizeType: item.sizeType,
-        unit: item.unit
+        unit: item.unit,
       };
     });
   }
@@ -175,11 +336,11 @@ export class InventoryService {
   async unarchiveInventory(id: string) {
     return await prisma.inventory.update({
       where: {
-        id
+        id,
       },
       data: {
-        status: "active"
-      }
+        status: "active",
+      },
     });
   }
 }

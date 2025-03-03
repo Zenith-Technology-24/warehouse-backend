@@ -1,4 +1,4 @@
-import { EndUser, Inventory, IssuanceDetail, Item, PrismaClient, ProductStatus } from "@prisma/client";
+import { EndUser, Inventory, Issuance, IssuanceDetail, Item, PrismaClient, ProductStatus } from "@prisma/client";
 import argon2 from "argon2";
 import { faker } from "@faker-js/faker";
 
@@ -60,6 +60,18 @@ async function seedUsers() {
         roles: { connect: { id: adminRole.id } },
       },
     }),
+    prisma.user.upsert({
+      where: { email: "giladmin@example.com" },
+      update: {},
+      create: {
+        email: "giladmin@example.com",
+        firstname: "Gil",
+        lastname: "Super Admin",
+        username: "giladmin",
+        password: await argon2.hash("password123"),
+        roles: { connect: { id: superadminRole.id } },
+      },
+    }),
   ]);
 
   console.log(`✅ Created ${users.length} users`);
@@ -90,7 +102,7 @@ async function seedItems() {
   return items;
 }
 
-async function seedInventories(items: Item[]) {
+async function seedInventories(items: Item[], issuances: Issuance[]) {
   console.log("📦 Seeding inventories...");
   const inventories = [];
 
@@ -107,6 +119,11 @@ async function seedInventories(items: Item[]) {
         unit: faker.helpers.arrayElement(["pcs", "box", "kg"]),
         sizeType: faker.helpers.arrayElement(["none", "apparrel", "numerical"]),
         item: { connect: { id: item.id } },
+        issuance: {
+          connect: {
+            id: faker.helpers.arrayElement(issuances).id
+          }
+        }
       },
     });
     inventories.push(inventory as never);
@@ -116,14 +133,14 @@ async function seedInventories(items: Item[]) {
   return inventories;
 }
 
-async function seedIssuanceDetails(inventories: Inventory[]) {
+async function seedIssuanceDetails() {
   console.log("📝 Seeding issuance details...");
   const issuanceDetails = [];
 
   for (let i = 0; i < 3; i++) {
     const issuanceDetail = await prisma.issuanceDetail.create({
       data: {
-        quantity: faker.number.int({ min: 1, max: 100 }).toString(),
+        quantity: "1",
         issuanceId: faker.string.uuid(),
         status: faker.helpers.arrayElement([
           'active',
@@ -131,9 +148,6 @@ async function seedIssuanceDetails(inventories: Inventory[]) {
           'withdrawn',
           'pending'
         ] as ProductStatus[]),
-        items: {
-          connect: [{ id: faker.helpers.arrayElement(inventories).id }]
-        }
       },
     });
     issuanceDetails.push(issuanceDetail as never);
@@ -222,10 +236,10 @@ async function main() {
     await seedRoles();
     await seedUsers();
     const items = await seedItems();
-    const inventories = await seedInventories(items);
     const endUsers = await seedEndUsers();
-    const issuanceDetails = await seedIssuanceDetails(inventories);
-    await seedIssuances(endUsers, issuanceDetails);
+    const issuanceDetails = await seedIssuanceDetails();
+    const issuances = await seedIssuances(endUsers, issuanceDetails);
+    const inventories = await seedInventories(items, issuances);
     await seedReceipts(inventories);
     console.log("✅ Seeding completed successfully!");
   } catch (error) {
