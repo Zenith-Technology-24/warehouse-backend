@@ -279,24 +279,36 @@ export class InventoryService {
 
       const consolidatedArray = Array.from(consolidatedMap.values()).map(
         (inventory) => {
-          // Calculate total quantity from receipts
           let totalQuantity = 0;
+          let grandTotalAmount = 0;
+      
+          // Calculate totals from receipts
           inventory.receipts.forEach((receipt: any) => {
             receipt.item.forEach((item: any) => {
               const quantity = parseInt(item.quantity || "0", 10);
+              const price = parseFloat(item.price || "0");
+              
               if (receipt.status !== "pending") {
                 totalQuantity += quantity;
+                grandTotalAmount += quantity * price;
               }
             });
           });
-
-          // Subtract issued quantities
+      
+          // Subtract issued quantities and their amounts
           inventory.issuance.forEach((issuance: any) => {
             if (issuance.status !== "pending") {
-              totalQuantity -= parseInt(issuance.quantity || "0", 10);
+              const issuedQuantity = parseInt(issuance.quantity || "0", 10);
+              const price = parseFloat(issuance.inventory?.item?.price || "0");
+              
+              totalQuantity -= issuedQuantity;
+              grandTotalAmount -= issuedQuantity * price;
             }
           });
-
+      
+          // Ensure grandTotalAmount doesn't go below 0
+          grandTotalAmount = Math.max(0, grandTotalAmount);
+      
           // Determine stock level
           let stockLevel = "Out of Stock";
           if (totalQuantity > 0) {
@@ -308,11 +320,12 @@ export class InventoryService {
               stockLevel = "High Stock";
             }
           }
-
+      
           return {
             ...inventory,
             totalQuantity,
             stockLevel,
+            grandTotalAmount: grandTotalAmount.toFixed(2),
           };
         }
       );
