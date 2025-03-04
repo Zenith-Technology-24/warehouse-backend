@@ -152,7 +152,6 @@ export class ReceiptService {
       }
 
       const updatedReceipt = await prisma.$transaction(async (tx) => {
-        // First disconnect existing relationships
         await tx.receipt.update({
           where: { id },
           data: {
@@ -231,6 +230,11 @@ export class ReceiptService {
                   receipts: {
                     connect: { id: receipt.id },
                   },
+                  item: {
+                    connect: {
+                      id: inventoryItem.item.id,
+                    }
+                  }
                 },
               });
 
@@ -271,31 +275,25 @@ export class ReceiptService {
           id,
         },
         include: {
-          inventory: {
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              sizeType: true,
-              item: {
-                select: {
-                  location: true,
-                  size: true,
-                  quantity: true,
-                  expiryDate: true,
-                  item_name: true,
-                  unit: true,
-                  price: true,
-                  amount: true,
-                },
-              },
-            },
-          },
+          item: true,
+          // inventory: {
+          //   select: {
+          //     id: true,
+          //     name: true,
+          //     status: true,
+          //     sizeType: true,
+          //   },
+          // },
           user: {
             select: {
               lastname: true,
               firstname: true,
               email: true,
+              roles: {
+                select: {
+                  name: true,
+                },
+              }
             },
           },
         },

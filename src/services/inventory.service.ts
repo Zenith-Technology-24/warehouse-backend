@@ -99,7 +99,6 @@ export class InventoryService {
               },
             },
           },
-
           issuance: {
             select: {
               quantity: true,
@@ -143,7 +142,21 @@ export class InventoryService {
           inventoryId: id,
         },
         include: {
-          receipt: true,
+          receipt: {
+            include: {
+              user: {
+                select: {
+                  firstname: true,
+                  lastname: true,
+                  roles: {
+                    select: {
+                      name: true,
+                    }
+                  },
+                },
+              },
+            },
+          },
         },
       });
 
@@ -153,6 +166,7 @@ export class InventoryService {
         totalQuantity: 0,
         availableQuantity: 0,
         pendingQuantity: 0,
+        grandTotalAmount: 0  // Add this new field
       };
 
       const sizeQuantities: Record<string, number> = {};
@@ -164,12 +178,15 @@ export class InventoryService {
               receipt.item.forEach((item) => {
                 const quantity = parseInt(item.quantity || "0", 10);
                 const size = item.size || "No Size";
+                const price = parseFloat(item.price || "0");
+                const amount = quantity * price;
 
                 if (receipt.status === "pending") {
                   quantitySummary.pendingQuantity += quantity;
                 } else {
                   quantitySummary.totalQuantity += quantity;
                   quantitySummary.availableQuantity += quantity;
+                  quantitySummary.grandTotalAmount += amount; // Add amount to grand total
                 }
 
                 if (receipt.status !== "pending") {
@@ -183,29 +200,32 @@ export class InventoryService {
           });
         }
 
-        // Account for issuances
-        if (inventory.issuance && inventory.issuance.length > 0) {
-          inventory.issuance.forEach((issuance) => {
-            const quantity = parseInt(issuance.quantity || "0", 10);
-            const size = issuance.inventory?.item?.size || "No Size";
+        // if (inventory.issuance && inventory.issuance.length > 0) {
+        //   inventory.issuance.forEach((issuance) => {
+        //     const quantity = parseInt(issuance.quantity || "0", 10);
+        //     const size = issuance.inventory?.item?.size || "No Size";
+        //     const price = parseFloat(issuance.inventory?.item?.amount || "0");
+        //     const amount = quantity * price;
 
-            if (issuance.status === "pending") {
-              // Pending issuances don't affect available quantity
-              quantitySummary.pendingQuantity += quantity;
-            } else {
-              // For issued items, subtract from available quantity
-              quantitySummary.totalQuantity -= quantity;
-              quantitySummary.availableQuantity -= quantity;
-            }
+        //     if (issuance.status === "pending") {
+        //       quantitySummary.pendingQuantity += quantity;
+        //     } else {
+        //       quantitySummary.totalQuantity -= quantity;
+        //       quantitySummary.availableQuantity -= quantity;
+        //       quantitySummary.grandTotalAmount -= amount; // Subtract amount for issuances
+        //     }
 
-            // Adjust the size quantities for completed issuances
-            if (issuance.status !== "pending" && sizeQuantities[size]) {
-              sizeQuantities[size] -= quantity;
-              if (sizeQuantities[size] < 0) sizeQuantities[size] = 0;
-            }
-          });
-        }
+        //     // Adjust the size quantities for completed issuances
+        //     if (issuance.status !== "pending" && sizeQuantities[size]) {
+        //       sizeQuantities[size] -= quantity;
+        //       if (sizeQuantities[size] < 0) sizeQuantities[size] = 0;
+        //     }
+        //   });
+        // }
       });
+
+      // Ensure grandTotalAmount doesn't go below 0
+      quantitySummary.grandTotalAmount = Math.max(0, quantitySummary.grandTotalAmount);
 
       const sizeStockLevels: Record<string, string> = {};
       Object.entries(sizeQuantities).forEach(([size, quantity]) => {
@@ -220,7 +240,10 @@ export class InventoryService {
 
       return {
         ...inventories.find((inv) => inv.id === id), // Return the originally requested inventory
-        quantitySummary,
+        quantitySummary: {
+          ...quantitySummary,
+          grandTotalAmount: quantitySummary.grandTotalAmount.toFixed(2) // Format to 2 decimal places
+        },
         items,
         sizeQuantities,
         sizeStockLevels,
