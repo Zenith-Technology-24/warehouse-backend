@@ -66,17 +66,33 @@ export class ReceiptService {
               await tx.inventory.update({
                 where: { id: existingInventory.id },
                 data: {
-                  quantity: String(parseInt(inventoryItem.item.quantity || "1")
-                    + parseInt(existingInventory.item?.quantity || "0")),
+                  quantity: String(
+                    parseInt(inventoryItem.item.quantity || "1") +
+                      parseInt(existingInventory.item?.quantity || "0")
+                  ),
                   receipts: {
                     connect: { id: receipt.id },
                   },
                 },
               });
 
-              if (existingInventory.item?.id) {
-                itemIds.push(existingInventory.item.id);
-              }
+              const item = await tx.item.create({
+                data: {
+                  item_name: inventoryItem.name,
+                  location: inventoryItem.item.location,
+                  size: inventoryItem.item.size,
+                  unit: inventoryItem.item.unit,
+                  quantity: String(inventoryItem.item.quantity),
+                  expiryDate: inventoryItem.item.expiryDate,
+                  price: String(inventoryItem.item.price),
+                  amount: String(inventoryItem.item.amount),
+                  Inventory: {
+                    connect: { id: existingInventory.id },
+                  },
+                },
+              });
+
+              itemIds.push(item.id);
             } else {
               const item = await tx.item.create({
                 data: {
@@ -114,7 +130,7 @@ export class ReceiptService {
             where: { id: receipt.id },
             data: {
               item: {
-                connect: itemIds.map(id => ({ id })),
+                connect: itemIds.map((id) => ({ id })),
               },
             },
           });
@@ -138,12 +154,13 @@ export class ReceiptService {
           item: true,
         },
       });
-  
+
       if (!existingReceipt) {
         throw new Error("Receipt not found");
       }
-  
+
       const updatedReceipt = await prisma.$transaction(async (tx) => {
+        // First disconnect existing relationships
         await tx.receipt.update({
           where: { id },
           data: {
@@ -153,13 +170,12 @@ export class ReceiptService {
               })),
             },
             item: {
-              disconnect: existingReceipt.item.map((itm) => ({
-                id: itm.id,
-              })),
+              disconnect: existingReceipt.item.map((itm) => ({ id: itm.id })),
             },
           },
         });
-  
+
+        // Update basic receipt information
         const receipt = await tx.receipt.update({
           where: { id },
           data: {
@@ -168,39 +184,37 @@ export class ReceiptService {
             receiptDate: data.receipt_date,
           },
         });
-  
+
         const itemIds: string[] = [];
-  
+
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
-            if (inventoryItem.id) {
+            const existingInventory = await tx.inventory.findFirst({
+              where: {
+                OR: [{ name: inventoryItem.name }, { id: inventoryItem.id }],
+              },
+              include: { item: true },
+            });
+
+            if (existingInventory) {
+              // Update existing inventory
               await tx.inventory.update({
-                where: { id: inventoryItem.id },
+                where: { id: existingInventory.id },
                 data: {
-                  quantity: String(parseInt(inventoryItem.item.quantity || "1")),
+                  quantity: String(
+                    parseInt(inventoryItem.item.quantity || "1") +
+                      parseInt(existingInventory.item?.quantity || "0")
+                  ),
                   receipts: {
                     connect: { id: receipt.id },
                   },
                 },
               });
 
-              if (inventoryItem.item.id) {
-                itemIds.push(inventoryItem.item.id);
-              }
-              continue;
-            }
-  
-            const existingInventory = await tx.inventory.findFirst({
-              where: { name: inventoryItem.name },
-              include: { item: true },
-            });
-  
-            if (existingInventory) {
-              // Update existing item
-              await tx.item.update({
-                where: { id: existingInventory.itemId },
+              // Create new item connected to existing inventory
+              const item = await tx.item.create({
                 data: {
-                  item_name: inventoryItem.item.item_name,
+                  item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
                   size: inventoryItem.item.size,
                   unit: inventoryItem.item.unit,
@@ -208,22 +222,15 @@ export class ReceiptService {
                   expiryDate: inventoryItem.item.expiryDate,
                   price: String(inventoryItem.item.price),
                   amount: String(inventoryItem.item.amount),
-                },
-              });
-  
-              // Update inventory and connect to receipt
-              await tx.inventory.update({
-                where: { id: existingInventory.id },
-                data: {
-                  sizeType: inventoryItem.sizeType,
-                  quantity: String(parseInt(inventoryItem.item.quantity || "1")),
-                  receipts: {
-                    connect: { id: receipt.id },
+                  Inventory: {
+                    connect: { id: existingInventory.id },
                   },
                 },
               });
-              itemIds.push(existingInventory.itemId);
+
+              itemIds.push(item.id);
             } else {
+              // Create new item
               const newItem = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -236,11 +243,10 @@ export class ReceiptService {
                   amount: String(inventoryItem.item.amount),
                 },
               });
-  
-              // Add new item ID to our collection
+
               itemIds.push(newItem.id);
-  
-              // Create new inventory with reference to the item
+
+              // Create new inventory
               await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -255,25 +261,25 @@ export class ReceiptService {
             }
           }
         }
-  
-        // Connect all collected item IDs to the receipt at once
+
+        // Connect all items to receipt
         if (itemIds.length > 0) {
           await tx.receipt.update({
             where: { id: receipt.id },
             data: {
               item: {
-                connect: itemIds.map(id => ({ id })),
+                connect: itemIds.map((id) => ({ id })),
               },
             },
           });
         }
-  
+
         return receipt;
       });
-  
+
       return updatedReceipt;
     } catch (error: any) {
-      throw new Error(`${error.message}`);
+      throw new Error(`Failed to update receipt: ${error.message}`);
     }
   }
 
@@ -369,7 +375,6 @@ export class ReceiptService {
                 email: true,
               },
             },
-            
           },
           orderBy: {
             createdAt: "desc",
@@ -378,7 +383,6 @@ export class ReceiptService {
         prisma.receipt.count({ where: where as never }),
       ]);
 
-      
       return {
         data: receipts,
         total,

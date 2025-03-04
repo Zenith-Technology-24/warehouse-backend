@@ -84,7 +84,6 @@ export class InventoryService {
 
       if (!existingInventory) return null;
 
-      // Get all inventories with the same name
       const inventories = await prisma.inventory.findMany({
         where: {
           name: existingInventory.name,
@@ -92,7 +91,7 @@ export class InventoryService {
         include: {
           receipts: {
             include: {
-              item: true, // Include items directly from receipts
+              item: true,
               user: {
                 select: {
                   firstname: true,
@@ -144,12 +143,9 @@ export class InventoryService {
 
       const sizeQuantities: Record<string, number> = {};
 
-      // Process all inventories with the same name
       inventories.forEach((inventory) => {
-        // Process receipts and their items
         if (inventory.receipts && inventory.receipts.length > 0) {
           inventory.receipts.forEach((receipt) => {
-            // Access items directly from receipt
             if (receipt.item && receipt.item.length > 0) {
               receipt.item.forEach((item) => {
                 const quantity = parseInt(item.quantity || "0", 10);
@@ -210,7 +206,6 @@ export class InventoryService {
 
       return {
         ...inventories.find((inv) => inv.id === id), // Return the originally requested inventory
-        allRelatedInventories: inventories, // Include all related inventories if needed
         quantitySummary,
         sizeQuantities,
         sizeStockLevels,
