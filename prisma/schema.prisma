@@ -21,7 +21,7 @@ model Inventory {
   updatedAt DateTime   @updatedAt @map("updated_at")
   endUser   EndUser?   @relation(fields: [endUserId], references: [id])
   endUserId String?
-  itemId    String
+  itemId    String?
   issuance  Issuance[]
 
   @@map("inventories")

@@ -55,7 +55,7 @@ export class ReceiptService {
 
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
-            const existingInventory = await tx.inventory.findUnique({
+            const existingInventory = await tx.inventory.findFirst({
               where: {
                 id: inventoryItem.id,
               },
@@ -81,7 +81,6 @@ export class ReceiptService {
                 },
               });
 
-              // Update inventory quantity
               await tx.inventory.update({
                 where: { id: existingInventory.id },
                 data: {
@@ -218,7 +217,7 @@ export class ReceiptService {
                   },
                   item: {
                     connect: { id: item.id },
-                  }
+                  },
                 },
               });
             } else {

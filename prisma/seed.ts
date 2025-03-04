@@ -254,15 +254,6 @@ async function main() {
   try {
     await seedRoles();
     await seedUsers();
-    const endUsers = await seedEndUsers();
-    const issuanceDetails = await seedIssuanceDetails();
-    const issuances = await seedIssuances(endUsers, issuanceDetails);
-    // Create items first
-    const items = await seedItems();
-    // Create inventories with items and issuances
-    const inventories = await seedInventories(items, issuances);
-    // Create receipts with inventories
-    const receipts = await seedReceipts(inventories);
 
     console.log("✅ Seeding completed successfully!");
   } catch (error) {
