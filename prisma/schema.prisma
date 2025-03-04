@@ -38,8 +38,9 @@ model Item {
   price       String?
   amount      String?
   inventoryId String?
-  Inventory   Inventory[]
-  Receipt     Receipt[]
+  inventory   Inventory[]
+  receipt     Receipt?    @relation(fields: [receiptId], references: [id])
+  receiptId   String?
 }
 
 model Receipt {

@@ -77,7 +77,6 @@ export class InventoryService {
 
   async getInventoryById(id: string) {
     try {
-      // First get the existing inventory by ID
       const existingInventory = await prisma.inventory.findUnique({
         where: { id },
       });
@@ -89,6 +88,7 @@ export class InventoryService {
           name: existingInventory.name,
         },
         include: {
+          
           receipts: {
             include: {
               item: true,
@@ -100,6 +100,7 @@ export class InventoryService {
               },
             },
           },
+          
           issuance: {
             select: {
               quantity: true,
@@ -128,13 +129,27 @@ export class InventoryService {
               },
             },
           },
-          item: true,
+          item: {
+            select: {
+              unit: true,
+              size: true,
+              item_name: true,
+            }
+          },
         },
+      });
+
+      const items = await prisma.item.findMany({
+        where: {
+          inventoryId: id,
+        },
+        include: {
+          receipt: true
+        }
       });
 
       if (inventories.length === 0) return null;
 
-      // Calculate quantity summaries and size quantities across all inventories
       const quantitySummary = {
         totalQuantity: 0,
         availableQuantity: 0,
@@ -207,6 +222,7 @@ export class InventoryService {
       return {
         ...inventories.find((inv) => inv.id === id), // Return the originally requested inventory
         quantitySummary,
+        items,
         sizeQuantities,
         sizeStockLevels,
       };
@@ -281,34 +297,34 @@ export class InventoryService {
         (inventory) => {
           let totalQuantity = 0;
           let grandTotalAmount = 0;
-      
+
           // Calculate totals from receipts
           inventory.receipts.forEach((receipt: any) => {
             receipt.item.forEach((item: any) => {
               const quantity = parseInt(item.quantity || "0", 10);
               const price = parseFloat(item.price || "0");
-              
+
               if (receipt.status !== "pending") {
                 totalQuantity += quantity;
                 grandTotalAmount += quantity * price;
               }
             });
           });
-      
+
           // Subtract issued quantities and their amounts
           inventory.issuance.forEach((issuance: any) => {
             if (issuance.status !== "pending") {
               const issuedQuantity = parseInt(issuance.quantity || "0", 10);
               const price = parseFloat(issuance.inventory?.item?.price || "0");
-              
+
               totalQuantity -= issuedQuantity;
               grandTotalAmount -= issuedQuantity * price;
             }
           });
-      
+
           // Ensure grandTotalAmount doesn't go below 0
           grandTotalAmount = Math.max(0, grandTotalAmount);
-      
+
           // Determine stock level
           let stockLevel = "Out of Stock";
           if (totalQuantity > 0) {
@@ -320,7 +336,7 @@ export class InventoryService {
               stockLevel = "High Stock";
             }
           }
-      
+
           return {
             ...inventory,
             totalQuantity,

@@ -38,6 +38,7 @@ export class ReceiptService {
   async create(data: CreateReceiptDto, user: User): Promise<Receipt> {
     try {
       const receipt = await prisma.$transaction(async (tx) => {
+        // Create the initial receipt
         const receipt = await tx.receipt.create({
           data: {
             source: data.source,
@@ -52,17 +53,35 @@ export class ReceiptService {
           },
         });
 
-        const itemIds: string[] = [];
-
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
-            const existingInventory = await tx.inventory.findFirst({
+            const existingInventory = await tx.inventory.findUnique({
               where: {
-                OR: [{ name: inventoryItem.name }, { id: inventoryItem.id }],
+                id: inventoryItem.id,
               },
               include: { item: true },
             });
+
             if (existingInventory) {
+              // Create new item
+              const item = await tx.item.create({
+                data: {
+                  item_name: inventoryItem.name,
+                  location: inventoryItem.item.location,
+                  size: inventoryItem.item.size,
+                  unit: inventoryItem.item.unit,
+                  quantity: String(inventoryItem.item.quantity),
+                  expiryDate: inventoryItem.item.expiryDate,
+                  price: String(inventoryItem.item.price),
+                  amount: String(inventoryItem.item.amount),
+                  receipt: {
+                    connect: { id: receipt.id },
+                  },
+                  inventoryId: inventoryItem.id,
+                },
+              });
+
+              // Update inventory quantity
               await tx.inventory.update({
                 where: { id: existingInventory.id },
                 data: {
@@ -75,65 +94,38 @@ export class ReceiptService {
                   },
                 },
               });
-
-              const item = await tx.item.create({
-                data: {
-                  item_name: inventoryItem.name,
-                  location: inventoryItem.item.location,
-                  size: inventoryItem.item.size,
-                  unit: inventoryItem.item.unit,
-                  quantity: String(inventoryItem.item.quantity),
-                  expiryDate: inventoryItem.item.expiryDate,
-                  price: String(inventoryItem.item.price),
-                  amount: String(inventoryItem.item.amount),
-                  Inventory: {
-                    connect: { id: existingInventory.id },
-                  },
-                },
-              });
-
-              itemIds.push(item.id);
             } else {
-              const item = await tx.item.create({
-                data: {
-                  item_name: inventoryItem.name,
-                  location: inventoryItem.item.location,
-                  size: inventoryItem.item.size,
-                  unit: inventoryItem.item.unit,
-                  quantity: String(inventoryItem.item.quantity),
-                  expiryDate: inventoryItem.item.expiryDate,
-                  price: String(inventoryItem.item.price),
-                  amount: String(inventoryItem.item.amount),
-                },
-              });
-
-              // Collect the new item ID
-              itemIds.push(item.id);
-
-              await tx.inventory.create({
+              // Create new inventory and item
+              const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
                   sizeType: inventoryItem.sizeType,
                   quantity: String(inventoryItem.item.quantity),
-                  itemId: item.id,
                   receipts: {
                     connect: { id: receipt.id },
                   },
                 },
               });
+
+              // Create new item connected to new inventory
+              await tx.item.create({
+                data: {
+                  item_name: inventoryItem.name,
+                  location: inventoryItem.item.location,
+                  size: inventoryItem.item.size,
+                  unit: inventoryItem.item.unit,
+                  quantity: String(inventoryItem.item.quantity),
+                  expiryDate: inventoryItem.item.expiryDate,
+                  price: String(inventoryItem.item.price),
+                  amount: String(inventoryItem.item.amount),
+                  receipt: {
+                    connect: { id: receipt.id },
+                  },
+                  inventoryId: inventory.id,
+                },
+              });
             }
           }
-        }
-
-        if (itemIds.length > 0) {
-          await tx.receipt.update({
-            where: { id: receipt.id },
-            data: {
-              item: {
-                connect: itemIds.map((id) => ({ id })),
-              },
-            },
-          });
         }
 
         return receipt;
@@ -185,33 +177,17 @@ export class ReceiptService {
           },
         });
 
-        const itemIds: string[] = [];
-
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
-            const existingInventory = await tx.inventory.findFirst({
+            const existingInventory = await tx.inventory.findUnique({
               where: {
-                OR: [{ name: inventoryItem.name }, { id: inventoryItem.id }],
+                id: inventoryItem.id,
               },
               include: { item: true },
             });
 
             if (existingInventory) {
-              // Update existing inventory
-              await tx.inventory.update({
-                where: { id: existingInventory.id },
-                data: {
-                  quantity: String(
-                    parseInt(inventoryItem.item.quantity || "1") +
-                      parseInt(existingInventory.item?.quantity || "0")
-                  ),
-                  receipts: {
-                    connect: { id: receipt.id },
-                  },
-                },
-              });
-
-              // Create new item connected to existing inventory
+              // Create new item connected to both inventory and receipt
               const item = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -222,16 +198,44 @@ export class ReceiptService {
                   expiryDate: inventoryItem.item.expiryDate,
                   price: String(inventoryItem.item.price),
                   amount: String(inventoryItem.item.amount),
-                  Inventory: {
-                    connect: { id: existingInventory.id },
+                  receipt: {
+                    connect: { id: receipt.id },
+                  },
+                  inventoryId: existingInventory.id,
+                },
+              });
+
+              // Update inventory quantity
+              await tx.inventory.update({
+                where: { id: existingInventory.id },
+                data: {
+                  quantity: String(
+                    parseInt(inventoryItem.item.quantity || "1") +
+                      parseInt(existingInventory.item?.quantity || "0")
+                  ),
+                  receipts: {
+                    connect: { id: receipt.id },
+                  },
+                  item: {
+                    connect: { id: item.id },
+                  }
+                },
+              });
+            } else {
+              // Create new inventory first
+              const inventory = await tx.inventory.create({
+                data: {
+                  name: inventoryItem.name,
+                  sizeType: inventoryItem.sizeType,
+                  quantity: String(inventoryItem.item.quantity),
+                  receipts: {
+                    connect: { id: receipt.id },
                   },
                 },
               });
 
-              itemIds.push(item.id);
-            } else {
-              // Create new item
-              const newItem = await tx.item.create({
+              // Create new item connected to both new inventory and receipt
+              await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
@@ -241,37 +245,14 @@ export class ReceiptService {
                   expiryDate: inventoryItem.item.expiryDate,
                   price: String(inventoryItem.item.price),
                   amount: String(inventoryItem.item.amount),
-                },
-              });
-
-              itemIds.push(newItem.id);
-
-              // Create new inventory
-              await tx.inventory.create({
-                data: {
-                  name: inventoryItem.name,
-                  sizeType: inventoryItem.sizeType,
-                  quantity: String(inventoryItem.item.quantity),
-                  itemId: newItem.id,
-                  receipts: {
+                  receipt: {
                     connect: { id: receipt.id },
                   },
+                  inventoryId: inventory.id,
                 },
               });
             }
           }
-        }
-
-        // Connect all items to receipt
-        if (itemIds.length > 0) {
-          await tx.receipt.update({
-            where: { id: receipt.id },
-            data: {
-              item: {
-                connect: itemIds.map((id) => ({ id })),
-              },
-            },
-          });
         }
 
         return receipt;

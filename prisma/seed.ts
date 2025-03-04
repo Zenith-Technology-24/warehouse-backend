@@ -1,4 +1,13 @@
-import { EndUser, Inventory, Issuance, IssuanceDetail, Item, PrismaClient, ProductStatus } from "@prisma/client";
+import {
+  EndUser,
+  Inventory,
+  Issuance,
+  IssuanceDetail,
+  Item,
+  PrismaClient,
+  ProductStatus,
+  Receipt,
+} from "@prisma/client";
 import argon2 from "argon2";
 import { faker } from "@faker-js/faker";
 
@@ -81,13 +90,20 @@ async function seedUsers() {
 async function seedItems() {
   console.log("📝 Seeding items...");
   const items = [];
-
   for (let i = 0; i < 5; i++) {
     const item = await prisma.item.create({
       data: {
         item_name: faker.commerce.productName(),
         location: faker.location.city(),
-        size: faker.helpers.arrayElement(["S", "M", "L", "XL", "38", "40", "42"]),
+        size: faker.helpers.arrayElement([
+          "S",
+          "M",
+          "L",
+          "XL",
+          "38",
+          "40",
+          "42",
+        ]),
         unit: faker.helpers.arrayElement(["pcs", "box", "kg"]),
         quantity: faker.number.int({ min: 1, max: 100 }).toString(),
         expiryDate: faker.date.future(),
@@ -105,25 +121,25 @@ async function seedItems() {
 async function seedInventories(items: Item[], issuances: Issuance[]) {
   console.log("📦 Seeding inventories...");
   const inventories = [];
-
+  
   for (const item of items) {
     const inventory = await prisma.inventory.create({
       data: {
         name: faker.commerce.productName(),
         status: faker.helpers.arrayElement([
-          'active',
-          'archived',
-          'withdrawn',
-          'pending'
+          "active",
+          "archived",
+          "withdrawn",
+          "pending",
         ] as ProductStatus[]),
         unit: faker.helpers.arrayElement(["pcs", "box", "kg"]),
         sizeType: faker.helpers.arrayElement(["none", "apparrel", "numerical"]),
-        item: { connect: { id: item.id } },
+        itemId: item.id,
         issuance: {
           connect: {
-            id: faker.helpers.arrayElement(issuances).id
-          }
-        }
+            id: faker.helpers.arrayElement(issuances).id,
+          },
+        },
       },
     });
     inventories.push(inventory as never);
@@ -143,10 +159,10 @@ async function seedIssuanceDetails() {
         quantity: "1",
         issuanceId: faker.string.uuid(),
         status: faker.helpers.arrayElement([
-          'active',
-          'archived',
-          'withdrawn',
-          'pending'
+          "active",
+          "archived",
+          "withdrawn",
+          "pending",
         ] as ProductStatus[]),
       },
     });
@@ -157,7 +173,10 @@ async function seedIssuanceDetails() {
   return issuanceDetails;
 }
 
-async function seedIssuances(endUsers: EndUser[], issuanceDetails: IssuanceDetail[]) {
+async function seedIssuances(
+  endUsers: EndUser[],
+  issuanceDetails: IssuanceDetail[]
+) {
   console.log("📄 Seeding issuances...");
   const issuances = [];
 
@@ -167,15 +186,15 @@ async function seedIssuances(endUsers: EndUser[], issuanceDetails: IssuanceDetai
         issuanceDirective: faker.string.alphanumeric(10),
         validityDate: faker.date.future(),
         status: faker.helpers.arrayElement([
-          'withdrawn',
-          'pending'
+          "withdrawn",
+          "pending",
         ] as ProductStatus[]),
         endUsers: {
-          connect: [{ id: faker.helpers.arrayElement(endUsers).id }]
+          connect: [{ id: faker.helpers.arrayElement(endUsers).id }],
         },
         issuanceDetail: {
-          connect: { id: faker.helpers.arrayElement(issuanceDetails).id }
-        }
+          connect: { id: faker.helpers.arrayElement(issuanceDetails).id },
+        },
       },
     });
     issuances.push(issuance as never);
@@ -211,15 +230,15 @@ async function seedReceipts(inventories: Inventory[]) {
       data: {
         source: faker.company.name(),
         status: faker.helpers.arrayElement([
-          'active',
-          'archived',
-          'withdrawn',
-          'pending'
+          "active",
+          "archived",
+          "withdrawn",
+          "pending",
         ] as ProductStatus[]),
         issuanceDirective: faker.string.alphanumeric(10),
         inventory: {
-          connect: [{ id: faker.helpers.arrayElement(inventories).id }]
-        }
+          connect: [{ id: faker.helpers.arrayElement(inventories).id }],
+        },
       },
     });
     receipts.push(receipt as never);
@@ -235,12 +254,16 @@ async function main() {
   try {
     await seedRoles();
     await seedUsers();
-    const items = await seedItems();
     const endUsers = await seedEndUsers();
     const issuanceDetails = await seedIssuanceDetails();
     const issuances = await seedIssuances(endUsers, issuanceDetails);
+    // Create items first
+    const items = await seedItems();
+    // Create inventories with items and issuances
     const inventories = await seedInventories(items, issuances);
-    await seedReceipts(inventories);
+    // Create receipts with inventories
+    const receipts = await seedReceipts(inventories);
+
     console.log("✅ Seeding completed successfully!");
   } catch (error) {
     console.error("❌ Seeding failed:", error);
