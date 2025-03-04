@@ -237,7 +237,11 @@ export class InventoryService {
         prisma.inventory.findMany({
           where: { ...where, status } as any,
           include: {
-            receipts: true,
+            receipts: {
+              include: {
+                item: true,
+              },
+            },
             issuance: true,
             item: true,
           },
@@ -267,14 +271,52 @@ export class InventoryService {
           }
 
           existing.receipts = [...existing.receipts, ...inventory.receipts];
-
           existing.issuance = [...existing.issuance, ...inventory.issuance];
         } else {
           consolidatedMap.set(name, { ...inventory });
         }
       });
 
-      const consolidatedArray = Array.from(consolidatedMap.values());
+      const consolidatedArray = Array.from(consolidatedMap.values()).map(
+        (inventory) => {
+          // Calculate total quantity from receipts
+          let totalQuantity = 0;
+          inventory.receipts.forEach((receipt: any) => {
+            receipt.item.forEach((item: any) => {
+              const quantity = parseInt(item.quantity || "0", 10);
+              if (receipt.status !== "pending") {
+                totalQuantity += quantity;
+              }
+            });
+          });
+
+          // Subtract issued quantities
+          inventory.issuance.forEach((issuance: any) => {
+            if (issuance.status !== "pending") {
+              totalQuantity -= parseInt(issuance.quantity || "0", 10);
+            }
+          });
+
+          // Determine stock level
+          let stockLevel = "Out of Stock";
+          if (totalQuantity > 0) {
+            if (totalQuantity <= 100) {
+              stockLevel = "Low Stock";
+            } else if (totalQuantity <= 499) {
+              stockLevel = "Mid Stock";
+            } else {
+              stockLevel = "High Stock";
+            }
+          }
+
+          return {
+            ...inventory,
+            totalQuantity,
+            stockLevel,
+          };
+        }
+      );
+
       const paginatedInventories = consolidatedArray.slice(
         skip,
         skip + pageSize
@@ -306,13 +348,13 @@ export class InventoryService {
   }
 
   async fetchItemTypes() {
-    return (await prisma.inventory.findMany()).map((item) => {
-      return {
-        id: item.id,
-        name: item.name,
-        sizeType: item.sizeType,
-        unit: item.unit,
-      };
+    return await prisma.inventory.findMany({
+      select: {
+        sizeType: true,
+        name: true,
+        unit: true,
+        id: true,
+      },
     });
   }
 
