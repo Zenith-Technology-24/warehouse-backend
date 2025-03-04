@@ -88,7 +88,6 @@ export class InventoryService {
           name: existingInventory.name,
         },
         include: {
-          
           receipts: {
             include: {
               item: true,
@@ -100,7 +99,7 @@ export class InventoryService {
               },
             },
           },
-          
+
           issuance: {
             select: {
               quantity: true,
@@ -134,7 +133,7 @@ export class InventoryService {
               unit: true,
               size: true,
               item_name: true,
-            }
+            },
           },
         },
       });
@@ -144,8 +143,8 @@ export class InventoryService {
           inventoryId: id,
         },
         include: {
-          receipt: true
-        }
+          receipt: true,
+        },
       });
 
       if (inventories.length === 0) return null;
@@ -377,7 +376,7 @@ export class InventoryService {
   }
 
   async fetchItemTypes() {
-    return await prisma.inventory.findMany({
+    const inventories = await prisma.inventory.findMany({
       select: {
         sizeType: true,
         name: true,
@@ -385,6 +384,18 @@ export class InventoryService {
         id: true,
       },
     });
+
+    // Create a Map to consolidate items by name
+    const consolidatedMap = new Map();
+
+    inventories.forEach((inventory) => {
+      if (!consolidatedMap.has(inventory.name)) {
+        consolidatedMap.set(inventory.name, inventory);
+      }
+    });
+
+    // Convert Map back to array
+    return Array.from(consolidatedMap.values());
   }
 
   async archiveInventory(id: string) {

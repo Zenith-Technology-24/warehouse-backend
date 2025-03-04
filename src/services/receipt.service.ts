@@ -98,7 +98,8 @@ export class ReceiptService {
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
-                  sizeType: inventoryItem.sizeType,
+                  sizeType: inventoryItem.item.size ? "apparrel" : "none",
+                  unit: inventoryItem.item.unit,
                   quantity: String(inventoryItem.item.quantity),
                   receipts: {
                     connect: { id: receipt.id },
