@@ -166,87 +166,112 @@ export class InventoryService {
         totalQuantity: 0,
         availableQuantity: 0,
         pendingQuantity: 0,
-        grandTotalAmount: 0  // Add this new field
+        grandTotalAmount: 0
       };
-
-      const sizeQuantities: Record<string, number> = {};
-
-      inventories.forEach((inventory) => {
-        if (inventory.receipts && inventory.receipts.length > 0) {
-          inventory.receipts.forEach((receipt) => {
-            if (receipt.item && receipt.item.length > 0) {
-              receipt.item.forEach((item) => {
-                const quantity = parseInt(item.quantity || "0", 10);
-                const size = item.size || "No Size";
-                const price = parseFloat(item.price || "0");
-                const amount = quantity * price;
-
-                if (receipt.status === "pending") {
-                  quantitySummary.pendingQuantity += quantity;
-                } else {
-                  quantitySummary.totalQuantity += quantity;
-                  quantitySummary.availableQuantity += quantity;
-                  quantitySummary.grandTotalAmount += amount; // Add amount to grand total
-                }
-
-                if (receipt.status !== "pending") {
-                  if (!sizeQuantities[size]) {
-                    sizeQuantities[size] = 0;
-                  }
-                  sizeQuantities[size] += quantity;
-                }
-              });
-            }
-          });
+      
+      const sizeQuantities: Record<string, { pending: number; available: number }> = {};
+      const sizeDetails: Array<{ size: string; pairs: string; status: string; type: 'pending' | 'available' }> = [];
+      
+      items.forEach((item) => {
+        const quantity = parseInt(item.quantity || "0", 10);
+        const size = item.size || "No Size";
+        const price = parseFloat(item.price || "0");
+        const amount = quantity * price;
+      
+        // Initialize size quantities if not exists
+        if (!sizeQuantities[size]) {
+          sizeQuantities[size] = { pending: 0, available: 0 };
         }
-
-        // if (inventory.issuance && inventory.issuance.length > 0) {
-        //   inventory.issuance.forEach((issuance) => {
-        //     const quantity = parseInt(issuance.quantity || "0", 10);
-        //     const size = issuance.inventory?.item?.size || "No Size";
-        //     const price = parseFloat(issuance.inventory?.item?.amount || "0");
-        //     const amount = quantity * price;
-
-        //     if (issuance.status === "pending") {
-        //       quantitySummary.pendingQuantity += quantity;
-        //     } else {
-        //       quantitySummary.totalQuantity -= quantity;
-        //       quantitySummary.availableQuantity -= quantity;
-        //       quantitySummary.grandTotalAmount -= amount; // Subtract amount for issuances
-        //     }
-
-        //     // Adjust the size quantities for completed issuances
-        //     if (issuance.status !== "pending" && sizeQuantities[size]) {
-        //       sizeQuantities[size] -= quantity;
-        //       if (sizeQuantities[size] < 0) sizeQuantities[size] = 0;
-        //     }
-        //   });
-        // }
+      
+        if (item.receipt?.status === "pending") {
+          quantitySummary.pendingQuantity += quantity;
+          sizeQuantities[size].pending += quantity;
+      
+          // Update or create pending entry
+          const existingPendingEntry = sizeDetails.find(
+            detail => detail.size === size && detail.type === 'pending'
+          );
+          let stockLevel = "High Stock";
+          if (sizeQuantities[size].pending <= 30) {
+            stockLevel = "Low Stock";
+          } else if (sizeQuantities[size].pending <= 98) {
+            stockLevel = "Mid Stock";
+          }
+      
+          if (existingPendingEntry) {
+            existingPendingEntry.pairs = String(sizeQuantities[size].pending);
+            existingPendingEntry.status = stockLevel;
+          } else {
+            sizeDetails.push({
+              size,
+              pairs: String(sizeQuantities[size].pending),
+              status: stockLevel,
+              type: 'pending'
+            });
+          }
+        } else {
+          quantitySummary.totalQuantity += quantity;
+          quantitySummary.availableQuantity += quantity;
+          quantitySummary.grandTotalAmount += amount;
+          sizeQuantities[size].available += quantity;
+      
+          // Update or create available entry
+          const existingAvailableEntry = sizeDetails.find(
+            detail => detail.size === size && detail.type === 'available'
+          );
+          let stockLevel = "High Stock";
+          if (sizeQuantities[size].available <= 30) {
+            stockLevel = "Low Stock";
+          } else if (sizeQuantities[size].available <= 98) {
+            stockLevel = "Mid Stock";
+          }
+      
+          if (existingAvailableEntry) {
+            existingAvailableEntry.pairs = String(sizeQuantities[size].available);
+            existingAvailableEntry.status = stockLevel;
+          } else {
+            sizeDetails.push({
+              size,
+              pairs: String(sizeQuantities[size].available),
+              status: stockLevel,
+              type: 'available'
+            });
+          }
+        }
       });
-
+      
       // Ensure grandTotalAmount doesn't go below 0
       quantitySummary.grandTotalAmount = Math.max(0, quantitySummary.grandTotalAmount);
 
-      const sizeStockLevels: Record<string, string> = {};
-      Object.entries(sizeQuantities).forEach(([size, quantity]) => {
-        if (quantity <= 30) {
-          sizeStockLevels[size] = "Low Stock";
-        } else if (quantity <= 98) {
-          sizeStockLevels[size] = "Mid Stock";
-        } else {
-          sizeStockLevels[size] = "High Stock";
-        }
-      });
+      const groupedSizeDetails = {
+        pending: sizeDetails.filter(detail => detail.type === 'pending')
+          .map(({ size, pairs, status }) => ({ size, pairs, status })),
+        available: sizeDetails.filter(detail => detail.type === 'available')
+          .map(({ size, pairs, status }) => ({ size, pairs, status })),
+        total: Object.entries(sizeQuantities).map(([size, quantities]) => {
+          const totalPairs = quantities.pending + quantities.available;
+          let stockLevel = "High Stock";
+          if (totalPairs <= 30) {
+            stockLevel = "Low Stock";
+          } else if (totalPairs <= 98) {
+            stockLevel = "Mid Stock";
+          }
+          return {
+            size,
+            pairs: String(totalPairs),
+            status: stockLevel
+          };
+        })
+      };
 
       return {
-        ...inventories.find((inv) => inv.id === id), // Return the originally requested inventory
+        ...inventories.find((inv) => inv.id === id),
         quantitySummary: {
           ...quantitySummary,
-          grandTotalAmount: quantitySummary.grandTotalAmount.toFixed(2) // Format to 2 decimal places
+          grandTotalAmount: quantitySummary.grandTotalAmount.toFixed(2)
         },
         items,
-        sizeQuantities,
-        sizeStockLevels,
+        sizeDetails: groupedSizeDetails, // Now returns an object with pending and available arrays
       };
     } catch (error: any) {
       throw new Error(`Failed to get inventory by ID: ${error.message}`);

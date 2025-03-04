@@ -38,7 +38,6 @@ export class ReceiptService {
   async create(data: CreateReceiptDto, user: User): Promise<Receipt> {
     try {
       const receipt = await prisma.$transaction(async (tx) => {
-        // Create the initial receipt
         const receipt = await tx.receipt.create({
           data: {
             source: data.source,
@@ -57,7 +56,10 @@ export class ReceiptService {
           for (const inventoryItem of data.inventory) {
             const existingInventory = await tx.inventory.findFirst({
               where: {
-                id: inventoryItem.id,
+                OR: [
+                  { name: inventoryItem.name },
+                  { id: inventoryItem.id },
+                ]
               },
               include: { item: true },
             });
@@ -77,7 +79,7 @@ export class ReceiptService {
                   receipt: {
                     connect: { id: receipt.id },
                   },
-                  inventoryId: inventoryItem.id,
+                  inventoryId: existingInventory.id,
                 },
               });
 
@@ -90,11 +92,11 @@ export class ReceiptService {
                   ),
                   receipts: {
                     connect: { id: receipt.id },
-                  },
+                  }
                 },
               });
             } else {
-              // Create new inventory and item
+
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -107,7 +109,6 @@ export class ReceiptService {
                 },
               });
 
-              // Create new item connected to new inventory
               await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -186,7 +187,6 @@ export class ReceiptService {
             });
 
             if (existingInventory) {
-              // Create new item connected to both inventory and receipt
               const item = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -276,14 +276,6 @@ export class ReceiptService {
         },
         include: {
           item: true,
-          // inventory: {
-          //   select: {
-          //     id: true,
-          //     name: true,
-          //     status: true,
-          //     sizeType: true,
-          //   },
-          // },
           user: {
             select: {
               lastname: true,
