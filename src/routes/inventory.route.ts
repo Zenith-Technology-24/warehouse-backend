@@ -17,7 +17,10 @@ inventory.post('/type', createItemType);
 inventory.get('/type', getItemTypes)
 inventory.get('/', getInventories as never);
 inventory.get('/:id', getInventoryById as never);
+
+inventory.post('/type', createItemType as never);
 inventory.post('/', createInventory as never);
+
 
 inventory.put('/archive/:id', archiveInventory);
 inventory.put('/unarchive/:id', unarchiveInventory);
