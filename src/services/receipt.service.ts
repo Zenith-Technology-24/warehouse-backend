@@ -56,17 +56,14 @@ export class ReceiptService {
           for (const inventoryItem of data.inventory) {
             const existingInventory = await tx.inventory.findFirst({
               where: {
-                OR: [
-                  { name: inventoryItem.name },
-                  { id: inventoryItem.id },
-                ]
+                OR: [{ name: inventoryItem.name }, { id: inventoryItem.id }],
               },
               include: { item: true },
             });
 
             if (existingInventory) {
               // Create new item
-              const item = await tx.item.create({
+              await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
@@ -92,11 +89,10 @@ export class ReceiptService {
                   ),
                   receipts: {
                     connect: { id: receipt.id },
-                  }
+                  },
                 },
               });
             } else {
-
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -233,8 +229,8 @@ export class ReceiptService {
                   item: {
                     connect: {
                       id: inventoryItem.item.id,
-                    }
-                  }
+                    },
+                  },
                 },
               });
 
@@ -270,7 +266,7 @@ export class ReceiptService {
 
   async getReceiptById(id: string) {
     try {
-      return await prisma.receipt.findUnique({
+      const receipt = await prisma.receipt.findUnique({
         where: {
           id,
         },
@@ -285,11 +281,41 @@ export class ReceiptService {
                 select: {
                   name: true,
                 },
-              }
+              },
             },
           },
         },
       });
+
+      if (!receipt) return null;
+
+      // Format monetary values in items
+      const formattedItems = receipt.item.map((item) => ({
+        ...item,
+        price: item.price
+          ? new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(
+              parseFloat(item.price)
+            )
+          : "0.00",
+        amount: item.amount
+          ? new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(
+              parseFloat(item.amount)
+            )
+          : "0.00",
+      }));
+
+      // Calculate total amount
+      const totalAmount = receipt.item.reduce((sum, item) => {
+        return sum + parseFloat(item.amount || "0");
+      }, 0);
+
+      return {
+        ...receipt,
+        item: formattedItems,
+        totalAmount: new Intl.NumberFormat("en-EN", {
+          maximumFractionDigits: 2,
+        }).format(totalAmount),
+      };
     } catch (error: any) {
       throw new Error(`Failed to get receipt: ${error.message}`);
     }
@@ -303,7 +329,7 @@ export class ReceiptService {
   ): Promise<ReceiptsResponseType> {
     try {
       const skip = (page - 1) * pageSize;
-
+  
       const where = search
         ? {
             OR: [
@@ -312,7 +338,7 @@ export class ReceiptService {
             ],
           }
         : {};
-
+  
       const [receipts, total] = await Promise.all([
         prisma.receipt.findMany({
           where: { ...where, status } as never,
@@ -353,9 +379,45 @@ export class ReceiptService {
         }),
         prisma.receipt.count({ where: where as never }),
       ]);
-
+  
+      // Format monetary values and calculate total amount for each receipt
+      const formattedReceipts = receipts.map(receipt => {
+        // Format inventory items' monetary values
+        const formattedInventories = receipt.inventory.map(inv => {
+          // Format the item price and amount if they exist
+          if (inv.item) {
+            const formattedItem = {
+              ...inv.item,
+              price: inv.item.price 
+                ? new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(parseFloat(inv.item.price))
+                : "0.00",
+              amount: inv.item.amount
+                ? new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(parseFloat(inv.item.amount))
+                : "0.00"
+            };
+            
+            return { ...inv, item: formattedItem };
+          }
+          return inv;
+        });
+  
+        // Calculate total amount for this receipt
+        const totalAmount = receipt.inventory.reduce((sum, inv) => {
+          if (inv.item?.amount) {
+            return sum + parseFloat(inv.item.amount);
+          }
+          return sum;
+        }, 0);
+  
+        return {
+          ...receipt,
+          inventory: formattedInventories,
+          totalAmount: new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(totalAmount)
+        };
+      });
+  
       return {
-        data: receipts,
+        data: formattedReceipts,
         total,
         currentPage: page,
         totalPages: Math.ceil(total / pageSize),

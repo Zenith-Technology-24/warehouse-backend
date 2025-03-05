@@ -268,7 +268,7 @@ export class InventoryService {
         ...inventories.find((inv) => inv.id === id),
         quantitySummary: {
           ...quantitySummary,
-          grandTotalAmount: quantitySummary.grandTotalAmount.toFixed(2)
+          grandTotalAmount: new Intl.NumberFormat('en-EN', {maximumFractionDigits: 2}).format(quantitySummary.grandTotalAmount)
         },
         items,
         sizeDetails: groupedSizeDetails, // Now returns an object with pending and available arrays
@@ -286,7 +286,7 @@ export class InventoryService {
   ): Promise<InventoryResponseType> {
     try {
       const skip = (page - 1) * pageSize;
-
+  
       const where = search
         ? {
             OR: [
@@ -295,114 +295,90 @@ export class InventoryService {
             ],
           }
         : {};
-
-      const [inventories] = await Promise.all([
-        prisma.inventory.findMany({
-          where: { ...where, status } as any,
-          include: {
-            receipts: {
-              include: {
-                item: true,
-              },
+  
+      const inventories = await prisma.inventory.findMany({
+        where: { ...where, status } as any,
+        include: {
+          receipts: {
+            include: {
+              item: true,
             },
-            issuance: true,
-            item: true,
           },
-          orderBy: {
-            createdAt: "desc",
-          },
-        }),
-      ]);
-
-      const consolidatedMap = new Map<string, any>();
-
-      inventories.forEach((inventory) => {
-        const name = inventory.name;
-
-        if (consolidatedMap.has(name)) {
-          const existing = consolidatedMap.get(name);
-
-          if (inventory.item && existing.item) {
-            const existingQuantity = parseInt(
-              existing.item.quantity || "0",
-              10
-            );
-            const newQuantity = parseInt(inventory.item.quantity || "0", 10);
-            existing.item.quantity = (
-              existingQuantity + newQuantity
-            ).toString();
-          }
-
-          existing.receipts = [...existing.receipts, ...inventory.receipts];
-          existing.issuance = [...existing.issuance, ...inventory.issuance];
-        } else {
-          consolidatedMap.set(name, { ...inventory });
-        }
+          issuance: true,
+          item: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
       });
-
-      const consolidatedArray = Array.from(consolidatedMap.values()).map(
-        (inventory) => {
-          let totalQuantity = 0;
-          let grandTotalAmount = 0;
-
-          // Calculate totals from receipts
-          inventory.receipts.forEach((receipt: any) => {
-            receipt.item.forEach((item: any) => {
+  
+      // Remove consolidation logic and process each inventory individually
+      const processedInventories = inventories.map((inventory) => {
+        let totalQuantity = 0;
+        let grandTotalAmount = 0;
+        
+        // Find all items associated with this specific inventory ID
+        inventory.receipts.flatMap(receipt => 
+          receipt.item.filter(item => item.inventoryId === inventory.id)
+        );
+        
+        // Calculate totals from receipts for this specific inventory
+        inventory.receipts.forEach((receipt: any) => {
+          receipt.item.forEach((item: any) => {
+            if (item.inventoryId === inventory.id) { // Only count items for this inventory
               const quantity = parseInt(item.quantity || "0", 10);
               const price = parseFloat(item.price || "0");
-
+  
               if (receipt.status !== "pending") {
                 totalQuantity += quantity;
                 grandTotalAmount += quantity * price;
               }
-            });
-          });
-
-          // Subtract issued quantities and their amounts
-          inventory.issuance.forEach((issuance: any) => {
-            if (issuance.status !== "pending") {
-              const issuedQuantity = parseInt(issuance.quantity || "0", 10);
-              const price = parseFloat(issuance.inventory?.item?.price || "0");
-
-              totalQuantity -= issuedQuantity;
-              grandTotalAmount -= issuedQuantity * price;
             }
           });
-
-          // Ensure grandTotalAmount doesn't go below 0
-          grandTotalAmount = Math.max(0, grandTotalAmount);
-
-          // Determine stock level
-          let stockLevel = "Out of Stock";
-          if (totalQuantity > 0) {
-            if (totalQuantity <= 100) {
-              stockLevel = "Low Stock";
-            } else if (totalQuantity <= 499) {
-              stockLevel = "Mid Stock";
-            } else {
-              stockLevel = "High Stock";
-            }
+        });
+  
+        // Subtract issued quantities and their amounts for this specific inventory
+        inventory.issuance.forEach((issuance: any) => {
+          if (issuance.status !== "pending" && issuance.inventoryId === inventory.id) {
+            const issuedQuantity = parseInt(issuance.quantity || "0", 10);
+            const price = parseFloat(issuance.inventory?.item?.price || "0");
+  
+            totalQuantity -= issuedQuantity;
+            grandTotalAmount -= issuedQuantity * price;
           }
-
-          return {
-            ...inventory,
-            totalQuantity,
-            stockLevel,
-            grandTotalAmount: grandTotalAmount.toFixed(2),
-          };
+        });
+  
+        // Ensure grandTotalAmount doesn't go below 0
+        grandTotalAmount = Math.max(0, grandTotalAmount);
+  
+        // Determine stock level
+        let stockLevel = "Out of Stock";
+        if (totalQuantity > 0) {
+          if (totalQuantity <= 100) {
+            stockLevel = "Low Stock";
+          } else if (totalQuantity <= 499) {
+            stockLevel = "Mid Stock";
+          } else {
+            stockLevel = "High Stock";
+          }
         }
-      );
-
-      const paginatedInventories = consolidatedArray.slice(
-        skip,
-        skip + pageSize
-      );
-
+  
+        return {
+          ...inventory,
+          totalQuantity,
+          stockLevel,
+          grandTotalAmount: new Intl.NumberFormat('en-EN', {maximumFractionDigits: 2}).format(grandTotalAmount),
+        };
+      });
+  
+      const total = processedInventories.length;
+      const paginatedInventories = processedInventories.slice(skip, skip + pageSize);
+  
       return {
         data: paginatedInventories,
-        total: consolidatedMap.size,
+        total: total,
         currentPage: page,
-        totalPages: Math.ceil(consolidatedMap.size / pageSize),
+        totalPages: Math.ceil(total / pageSize),
       };
     } catch (error: any) {
       throw new Error(`Failed to get inventories: ${error.message}`);
