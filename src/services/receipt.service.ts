@@ -271,6 +271,7 @@ export class ReceiptService {
           id,
         },
         include: {
+          inventory: true,
           item: true,
           user: {
             select: {
