@@ -204,11 +204,8 @@ export class ReceiptService {
                 },
               });
 
-              const item = await tx.item.upsert({
-                where: {
-                  id: existingInventory.itemId || "",
-                },
-                create: {
+              const item = await tx.item.create({
+                data: {
                   item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
                   size: inventoryItem.item.size,
@@ -222,20 +219,6 @@ export class ReceiptService {
                   },
                   inventoryId: inventory.id,
                 },
-                update: {
-                  item_name: inventoryItem.name,
-                  location: inventoryItem.item.location,
-                  size: inventoryItem.item.size,
-                  unit: inventoryItem.item.unit,
-                  quantity: String(inventoryItem.item.quantity),
-                  expiryDate: inventoryItem.item.expiryDate,
-                  price: String(inventoryItem.item.price),
-                  amount: String(inventoryItem.item.amount),
-                  receipt: {
-                    connect: { id: receipt.id },
-                  },
-                  inventoryId: inventory.id,
-                }
               });
 
               console.log("ITEM SHII", item)
