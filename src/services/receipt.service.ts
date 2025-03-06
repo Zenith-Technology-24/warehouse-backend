@@ -175,9 +175,12 @@ export class ReceiptService {
 
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
-            const existingInventory = await tx.inventory.findUnique({
+            const existingInventory = await tx.inventory.findFirst({
               where: {
-                id: inventoryItem.id,
+                OR: [
+                  { name: inventoryItem.name },
+                  { id: inventoryItem.id },
+                ]
               },
               include: { item: true },
             });
