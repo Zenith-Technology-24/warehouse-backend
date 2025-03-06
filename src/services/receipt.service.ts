@@ -220,7 +220,6 @@ export class ReceiptService {
                 },
               });
             } else {
-              // Create new inventory first
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -228,11 +227,6 @@ export class ReceiptService {
                   quantity: String(inventoryItem.item.quantity),
                   receipts: {
                     connect: { id: receipt.id },
-                  },
-                  item: {
-                    connect: {
-                      id: inventoryItem.item.id,
-                    },
                   },
                 },
               });
