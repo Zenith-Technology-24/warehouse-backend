@@ -149,6 +149,14 @@ export class ReceiptService {
       }
 
       const updatedReceipt = await prisma.$transaction(async (tx) => {
+        // First, delete the items associated with this receipt to properly clean up relationships
+        for (const item of existingReceipt.item) {
+          await tx.item.delete({
+            where: { id: item.id },
+          });
+        }
+
+        // Now disconnect inventory associations from the receipt
         await tx.receipt.update({
           where: { id },
           data: {
@@ -157,9 +165,7 @@ export class ReceiptService {
                 id: inv.id,
               })),
             },
-            item: {
-              disconnect: existingReceipt.item.map((itm) => ({ id: itm.id })),
-            },
+            // No need to disconnect items as we've deleted them
           },
         });
 
@@ -175,17 +181,29 @@ export class ReceiptService {
 
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
+            // Find existing inventory by name or id
             const existingInventory = await tx.inventory.findFirst({
               where: {
-                OR: [
-                  { name: inventoryItem.name },
-                  { id: inventoryItem.id },
-                ]
+                OR: [{ id: inventoryItem.id }, { name: inventoryItem.name }],
               },
-              include: { item: true },
             });
 
             if (existingInventory) {
+              // Create new item
+              // Update inventory quantity and connect it to the receipt
+              const inventory = await tx.inventory.update({
+                where: { id: existingInventory.id },
+                data: {
+                  quantity: String(
+                    parseInt(inventoryItem.item.quantity || "1") +
+                      parseInt(existingInventory.quantity || "0")
+                  ),
+                  receipts: {
+                    connect: { id: receipt.id },
+                  },
+                },
+              });
+
               const item = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -199,27 +217,15 @@ export class ReceiptService {
                   receipt: {
                     connect: { id: receipt.id },
                   },
-                  inventoryId: existingInventory.id,
+                  inventoryId: inventory.id,
                 },
               });
 
-              // Update inventory quantity
-              await tx.inventory.update({
-                where: { id: existingInventory.id },
-                data: {
-                  quantity: String(
-                    parseInt(inventoryItem.item.quantity || "1") +
-                      parseInt(existingInventory.item?.quantity || "0")
-                  ),
-                  receipts: {
-                    connect: { id: receipt.id },
-                  },
-                  item: {
-                    connect: { id: item.id },
-                  },
-                },
-              });
+              console.log("ITEM SHII", item)
+
+              
             } else {
+              // Create new inventory
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
