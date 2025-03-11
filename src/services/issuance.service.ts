@@ -104,9 +104,6 @@ export class IssuanceService {
                   data: {
                     quantity: inventoryItem.item.quantity || "0",
                     issuanceId: issuance.id,
-                    items: {
-                      connect: { id: inventory.id },
-                    },
                     EndUser: {
                       connect: { id: createdEndUser.id },
                     },
@@ -159,21 +156,6 @@ export class IssuanceService {
                     quantity: true,
                     status: true,
                     receiptRef: true,
-                    items: {
-                      select: {
-                        name: true,
-                        status: true,
-                        item: {
-                          select: {
-                            item_name: true,
-                            quantity: true,
-                            price: true,
-                            amount: true,
-                            unit: true,
-                          },
-                        },
-                      },
-                    },
                   },
                 },
               },
@@ -205,15 +187,7 @@ export class IssuanceService {
         include: {
           endUsers: {
             include: {
-              inventories: {
-                include: {
-                  items: {
-                    include: {
-                      item: true,
-                    },
-                  },
-                },
-              },
+              inventories: true,
             },
           },
           user: true,
