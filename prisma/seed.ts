@@ -94,11 +94,7 @@ async function main() {
     await seedRoles();
     await seedUsers();
 
-    // await prisma.item.deleteMany({
-    //   where: {
-    //     receiptId: null
-    //   }
-    // });
+    // await prisma.issuance.deleteMany();
 
     console.log("✅ Seeding completed successfully!");
   } catch (error) {

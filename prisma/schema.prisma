@@ -9,7 +9,7 @@ datasource db {
 
 model Inventory {
   id       String        @id @unique @default(uuid())
-  name     String
+  name     String        @unique
   sizeType SizeType      @default(none)
   status   ProductStatus @default(active)
   unit     String?
@@ -65,6 +65,7 @@ model Issuance {
   issuanceDate      DateTime        @default(now()) @map("issuance_date")
   issuanceDirective String?         @map("issuance_directive")
   validityDate      DateTime        @map("validity_date")
+  documentNo        String?         @map("document_no")
   quantity          String?         @default("1")
   endUsers          EndUser[]
   status            ProductStatus   @default(pending)
@@ -75,7 +76,7 @@ model Issuance {
   issuanceDetail    IssuanceDetail? @relation(fields: [issuanceDetailId], references: [id])
   issuanceDetailId  String?
   inventory         Inventory?      @relation(fields: [inventoryId], references: [id])
-  inventoryId       String?         @unique
+  inventoryId       String?
 
   @@map("issuances")
 }

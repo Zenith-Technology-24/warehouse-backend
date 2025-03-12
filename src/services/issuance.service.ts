@@ -8,6 +8,7 @@ interface InventoryPayload {
   sizeType: "none" | "apparrel" | "numerical";
   issuance_date: Date;
   validity_date: Date;
+  receiptRef?: string;
   item: {
     id?: string;
     item_name: string;
@@ -31,6 +32,7 @@ interface CreateIssuanceDto {
   issuanceDirective?: string;
   validityDate: Date;
   status?: ProductStatus;
+  documentNo?: string;
   endUsers?: EndUserPayload[];
 }
 
@@ -50,60 +52,99 @@ export class IssuanceService {
             issuanceDirective: data.issuanceDirective,
             validityDate: data.validityDate,
             status: data.status || "pending",
+            documentNo: data.documentNo,
             user: {
               connect: {
                 id: user.id,
               },
             },
-
           },
         });
 
         if (data.endUsers && data.endUsers.length > 0) {
           for (const endUser of data.endUsers) {
-            const createdEndUser = await tx.endUser.create({
-              data: {
-                name: endUser.name,
-                Issuance: {
-                  connect: { id: issuance.id },
+            // Check if an end user ID is provided
+            let createdEndUser;
+
+            if (endUser.id) {
+              // Verify the end user exists
+              const existingEndUser = await tx.endUser.findUnique({
+                where: { id: endUser.id },
+              });
+
+              if (!existingEndUser) {
+                throw new Error(`End user with ID ${endUser.id} not found`);
+              }
+
+              // Update the existing end user to connect with current issuance
+              createdEndUser = await tx.endUser.update({
+                where: { id: endUser.id },
+                data: {
+                  Issuance: {
+                    connect: { id: issuance.id },
+                  },
                 },
-              },
-            });
+              });
+            } else {
+              // Create a new end user if no ID was provided
+              createdEndUser = await tx.endUser.create({
+                data: {
+                  name: endUser.name,
+                  Issuance: {
+                    connect: { id: issuance.id },
+                  },
+                },
+              });
+            }
 
             if (endUser.inventory && endUser.inventory.length > 0) {
               for (const inventoryItem of endUser.inventory) {
-                const item = await tx.item.create({
-                  data: {
-                    item_name: inventoryItem.item.item_name,
-                    location: inventoryItem.item.location,
-                    size: inventoryItem.item.size,
-                    unit: inventoryItem.item.unit,
-                    quantity: inventoryItem.item.quantity,
-                    expiryDate: inventoryItem.item.expiryDate,
-                    price: inventoryItem.item.price,
-                    amount: inventoryItem.item.amount,
-                  },
-                });
+                // Check if inventory ID is provided
+                if (!inventoryItem.id) {
+                  throw new Error(
+                    "Inventory ID is required when creating an issuance with receipt reference"
+                  );
+                }
+                if (inventoryItem.id) {
+                  // Verify the inventory exists
+                  const existingInventory = await tx.inventory.findUnique({
+                    where: { id: inventoryItem.id },
+                    include: { item: true },
+                  });
 
-                const inventory = await tx.inventory.create({
-                  data: {
-                    name: inventoryItem.name,
-                    sizeType: inventoryItem.sizeType,
-                    item: {
-                      connect: {
-                        id: item.id,
+                  if (!existingInventory) {
+                    throw new Error(
+                      `Inventory with ID ${inventoryItem.id} not found`
+                    );
+                  }
+
+                  // Update the existing inventory to connect with current issuance
+                  await tx.inventory.update({
+                    where: { id: inventoryItem.id },
+                    data: {
+                      issuance: {
+                        // Then connect to the new issuance
+                        connect: { id: issuance.id },
                       },
                     },
-                    endUser: {
-                      connect: { id: createdEndUser.id },
-                    },
-                  },
-                });
+                  });
 
+                  // Update the issuance quantity
+                  await tx.issuance.update({
+                    where: { id: issuance.id },
+                    data: {
+                      quantity: inventoryItem.item.quantity || "1",
+                    },
+                  });
+                }
+
+                // Create the issuance detail with the connection to the end user
                 await tx.issuanceDetail.create({
                   data: {
                     quantity: inventoryItem.item.quantity || "0",
                     issuanceId: issuance.id,
+                    status: "pending",
+                    receiptRef: inventoryItem.receiptRef,
                     EndUser: {
                       connect: { id: createdEndUser.id },
                     },

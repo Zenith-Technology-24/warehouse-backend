@@ -80,9 +80,9 @@ export class InventoryService {
       const existingInventory = await prisma.inventory.findUnique({
         where: { id },
       });
-
+  
       if (!existingInventory) return null;
-
+  
       const inventories = await prisma.inventory.findMany({
         where: {
           name: existingInventory.name,
@@ -101,6 +101,7 @@ export class InventoryService {
           },
           issuance: {
             select: {
+              id: true,
               quantity: true,
               createdAt: true,
               issuanceDirective: true,
@@ -136,7 +137,7 @@ export class InventoryService {
           },
         },
       });
-
+  
       const items = await prisma.item.findMany({
         where: {
           inventoryId: id,
@@ -159,103 +160,184 @@ export class InventoryService {
           },
         },
       });
-
+  
       if (inventories.length === 0) return null;
-
+  
+      // Get all issuance records related to this inventory
+      const issuances = await prisma.issuance.findMany({
+        where: {
+          inventoryId: id,
+        },
+        select: {
+          quantity: true,
+          status: true,
+          inventory: {
+            select: {
+              item: {
+                select: {
+                  size: true,
+                }
+              }
+            }
+          }
+        }
+      });
+  
       const quantitySummary = {
         totalQuantity: 0,
         availableQuantity: 0,
         pendingQuantity: 0,
+        pendingIssuanceQuantity: 0,
+        withdrawnQuantity: 0,
         grandTotalAmount: 0
       };
       
-      const sizeQuantities: Record<string, { pending: number; available: number }> = {};
-      const sizeDetails: Array<{ size: string; pairs: string; status: string; type: 'pending' | 'available' }> = [];
+      // Track quantities by size
+      const sizeQuantities: Record<string, { 
+        pending: number;       // Pending receipts
+        available: number;     // Available quantities from non-pending receipts 
+        withdrawn: number;    // Withdrawn issuances
+      }> = {};
       
+      // Step 1: Process receipt items to get base inventory
       items.forEach((item) => {
         const quantity = parseInt(item.quantity || "0", 10);
+        // Use actual size from item or default to "No Size"
         const size = item.size || "No Size";
         const price = parseFloat(item.price || "0");
         const amount = quantity * price;
       
         // Initialize size quantities if not exists
         if (!sizeQuantities[size]) {
-          sizeQuantities[size] = { pending: 0, available: 0 };
+          sizeQuantities[size] = { 
+            pending: 0, 
+            available: 0,
+            pending: 0,
+            withdrawn: 0
+          };
         }
       
+        // Handle pending vs. active receipts
         if (item.receipt?.status === "pending") {
           quantitySummary.pendingQuantity += quantity;
           sizeQuantities[size].pending += quantity;
-      
-          // Update or create pending entry
-          const existingPendingEntry = sizeDetails.find(
-            detail => detail.size === size && detail.type === 'pending'
-          );
-          let stockLevel = "High Stock";
-          if (sizeQuantities[size].pending <= 30) {
-            stockLevel = "Low Stock";
-          } else if (sizeQuantities[size].pending <= 98) {
-            stockLevel = "Mid Stock";
-          }
-      
-          if (existingPendingEntry) {
-            existingPendingEntry.pairs = String(sizeQuantities[size].pending);
-            existingPendingEntry.status = stockLevel;
-          } else {
-            sizeDetails.push({
-              size,
-              pairs: String(sizeQuantities[size].pending),
-              status: stockLevel,
-              type: 'pending'
-            });
-          }
         } else {
-          quantitySummary.totalQuantity += quantity;
-          quantitySummary.availableQuantity += quantity;
-          quantitySummary.grandTotalAmount += amount;
+          // Only count as available if receipt is not pending
           sizeQuantities[size].available += quantity;
-      
-          // Update or create available entry
-          const existingAvailableEntry = sizeDetails.find(
-            detail => detail.size === size && detail.type === 'available'
-          );
-          let stockLevel = "High Stock";
-          if (sizeQuantities[size].available <= 30) {
-            stockLevel = "Low Stock";
-          } else if (sizeQuantities[size].available <= 98) {
-            stockLevel = "Mid Stock";
-          }
-      
-          if (existingAvailableEntry) {
-            existingAvailableEntry.pairs = String(sizeQuantities[size].available);
-            existingAvailableEntry.status = stockLevel;
-          } else {
-            sizeDetails.push({
-              size,
-              pairs: String(sizeQuantities[size].available),
-              status: stockLevel,
-              type: 'available'
-            });
-          }
+          quantitySummary.grandTotalAmount += amount;
         }
       });
       
-      // Ensure grandTotalAmount doesn't go below 0
-      quantitySummary.grandTotalAmount = Math.max(0, quantitySummary.grandTotalAmount);
-
+      // Step 2: Process issuances to adjust quantities
+      issuances.forEach((issuance) => {
+        const quantity = parseInt(issuance.quantity || "0", 10);
+        
+        // Use the inventory item's size from the items array as it's more reliable
+        const itemForIssuance = items.find(item => 
+          item.inventoryId === id && item.receipt?.status === "active"
+        );
+        
+        const size = itemForIssuance?.size || "No Size";
+        
+        if (!sizeQuantities[size]) {
+          sizeQuantities[size] = { 
+            pending: 0, 
+            available: 0,
+            pending: 0,
+            withdrawn: 0
+          };
+        }
+        
+        if (issuance.status === "pending") {
+          // Pending issuances
+          sizeQuantities[size].pending += quantity;
+          quantitySummary.pendingIssuanceQuantity += quantity;
+        } else if (issuance.status === "withdrawn") {
+          // Withdrawn items are deducted from available
+          sizeQuantities[size].withdrawn += quantity;
+          quantitySummary.withdrawnQuantity += quantity;
+        }
+      });
+      
+      // Step 3: Calculate final available quantities and totals
+      let totalAvailable = 0;
+      
+      // Process size quantities to calculate final values
+      Object.keys(sizeQuantities).forEach((size) => {
+        // Final available = receipts - withdrawn
+        const finalAvailable = Math.max(0, sizeQuantities[size].available - sizeQuantities[size].withdrawn);
+        sizeQuantities[size].available = finalAvailable;
+        
+        // Add to total available
+        totalAvailable += finalAvailable;
+      });
+      
+      // Update summary values
+      quantitySummary.availableQuantity = totalAvailable;
+      quantitySummary.totalQuantity = totalAvailable + quantitySummary.pendingQuantity;
+      
+      // Step 4: Create size details for UI display
+      const sizeDetails: Array<{ 
+        size: string; 
+        pairs: string; 
+        status: string; 
+        type: 'pending' | 'available' | 'pending' 
+      }> = [];
+      
+      Object.entries(sizeQuantities).forEach(([size, quantities]) => {
+        // Handle pending receipt items
+        if (quantities.pending > 0) {
+          let stockLevel = determineStockLevel(quantities.pending);
+          
+          sizeDetails.push({
+            size,
+            pairs: String(quantities.pending),
+            status: stockLevel,
+            type: 'pending'
+          });
+        }
+        
+        // Handle pending issuance items
+        if (quantities.pending > 0) {
+          let stockLevel = determineStockLevel(quantities.pending);
+          
+          sizeDetails.push({
+            size,
+            pairs: String(quantities.pending),
+            status: stockLevel,
+            type: 'pending'
+          });
+        }
+        
+        // Handle available items
+        if (quantities.available > 0) {
+          let stockLevel = determineStockLevel(quantities.available);
+          
+          sizeDetails.push({
+            size,
+            pairs: String(quantities.available),
+            status: stockLevel,
+            type: 'available'
+          });
+        }
+      });
+  
+      // Helper function for determining stock level
+      function determineStockLevel(quantity: number): string {
+        if (quantity <= 30) return "Low Stock";
+        if (quantity <= 98) return "Mid Stock";
+        return "High Stock";
+      }
+  
       const groupedSizeDetails = {
         pending: sizeDetails.filter(detail => detail.type === 'pending')
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
         available: sizeDetails.filter(detail => detail.type === 'available')
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          const totalPairs = quantities.pending + quantities.available;
-          let stockLevel = "High Stock";
-          if (totalPairs <= 30) {
-            stockLevel = "Low Stock";
-          } else if (totalPairs <= 98) {
-            stockLevel = "Mid Stock";
-          }
+          // Total = available (which is already adjusted for withdrawn) + pending
+          const totalPairs = quantities.available + quantities.pending;
+          let stockLevel = determineStockLevel(totalPairs);
           return {
             size,
             pairs: String(totalPairs),
@@ -263,7 +345,7 @@ export class InventoryService {
           };
         })
       };
-
+  
       return {
         ...inventories.find((inv) => inv.id === id),
         quantitySummary: {
@@ -271,7 +353,13 @@ export class InventoryService {
           grandTotalAmount: new Intl.NumberFormat('en-EN', {maximumFractionDigits: 2}).format(quantitySummary.grandTotalAmount)
         },
         items,
-        sizeDetails: groupedSizeDetails, // Now returns an object with pending and available arrays
+        sizeDetails: groupedSizeDetails,
+        detailedQuantities: sizeQuantities,
+        // For debugging
+        debug: {
+          withdrawnTotal: quantitySummary.withdrawnQuantity,
+          pendingIssuanceTotal: quantitySummary.pendingIssuanceQuantity
+        }
       };
     } catch (error: any) {
       throw new Error(`Failed to get inventory by ID: ${error.message}`);
