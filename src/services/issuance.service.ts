@@ -185,9 +185,11 @@ export class IssuanceService {
           }
         : {};
 
+      const statusFilter = status === 'all' ? undefined : status;
+
       const [issuances, total] = await Promise.all([
         prisma.issuance.findMany({
-          where: { ...where, status: status as ProductStatus } as never,
+          where: { ...where, status: statusFilter as ProductStatus } as never,
           skip,
           take: pageSize,
           include: {
