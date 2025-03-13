@@ -438,7 +438,8 @@ export class IssuanceService {
               unit: item.unit,
               max_quantity: item.quantity,
               size: item.size,
-              price: item.price
+              price: item.price,
+              name: item.item_name
             }
           })
         });
