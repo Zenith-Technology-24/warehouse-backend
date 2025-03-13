@@ -33,6 +33,7 @@ interface CreateIssuanceDto {
   validityDate: Date;
   status?: ProductStatus;
   documentNo?: string;
+  receiptRef?: string;
   endUsers?: EndUserPayload[];
 }
 
@@ -142,9 +143,9 @@ export class IssuanceService {
                 await tx.issuanceDetail.create({
                   data: {
                     quantity: inventoryItem.item.quantity || "0",
-                    issuanceId: issuance.id,
+                  issuanceId: issuance.id,
                     status: "pending",
-                    receiptRef: inventoryItem.receiptRef,
+                    receiptRef: data.receiptRef,
                     EndUser: {
                       connect: { id: createdEndUser.id },
                     },
