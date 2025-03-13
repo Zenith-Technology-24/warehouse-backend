@@ -211,8 +211,8 @@ export class IssuanceService {
             data: {
               issuance: {
                 disconnect: {
-                  id: existingIssuance.id
-                }
+                  id: existingIssuance.id,
+                },
               },
             },
           });
@@ -415,6 +415,36 @@ export class IssuanceService {
   }
 
   async getReceipts() {
-    return await prisma.receipt.findMany();
+    const receipts = await prisma.receipt.findMany({
+      include: {
+        item: true
+      },
+    });
+
+    const response: any = [];
+
+    for (let i = 0; i < receipts.length; i++) {
+      (async () => {
+        const receipt = receipts[i];
+        const items = receipt.item;
+
+        response.push({
+          id: receipt.id,
+          receipt: receipt.issuanceDirective,
+          items: items.map(item => {
+            return {
+              id: item.id,
+              inventoryId: item.inventoryId,
+              unit: item.unit,
+              max_quantity: item.quantity,
+              size: item.size,
+              price: item.price
+            }
+          })
+        });
+      })();
+    }
+
+    return response;
   }
 }
