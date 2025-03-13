@@ -22,6 +22,7 @@ export const getReceipts = async (c: Context) => {
   );
 };
 
+
 export const createReceipts = async (c: Context & { user: User }) => {
   const data = await c.req.json();
   const user = c.user;

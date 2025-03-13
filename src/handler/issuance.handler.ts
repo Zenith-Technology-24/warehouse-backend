@@ -24,6 +24,10 @@ export const getIssuances = async (c: Context) => {
   );
 };
 
+export const fetchReceiptsForIssuance = async (c: Context) => {
+  return c.json(await issuanceService.getReceipts(), 200);
+}
+
 export const createIssuance = async (c: Context & { user: User }) => {  
   const data = await c.req.json();
 

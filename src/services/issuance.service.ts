@@ -143,7 +143,7 @@ export class IssuanceService {
                 await tx.issuanceDetail.create({
                   data: {
                     quantity: inventoryItem.item.quantity || "0",
-                  issuanceId: issuance.id,
+                    issuanceId: issuance.id,
                     status: "pending",
                     receiptRef: data.receiptRef,
                     EndUser: {
@@ -168,6 +168,178 @@ export class IssuanceService {
     }
   }
 
+  async update(
+    id: string,
+    data: CreateIssuanceDto,
+    user: User
+  ): Promise<Issuance> {
+    try {
+      const issuance = await prisma.$transaction(async (tx) => {
+        const existingIssuance = await tx.issuance.findUnique({
+          where: { id },
+          include: {
+            endUsers: true,
+            issuanceDetail: true,
+            inventory: true,
+          },
+        });
+
+        if (!existingIssuance) {
+          throw new Error(`Issuance with ID ${id} not found`);
+        }
+
+        if (existingIssuance.endUsers && existingIssuance.endUsers.length > 0) {
+          for (const endUser of existingIssuance.endUsers) {
+            await tx.endUser.update({
+              where: { id: endUser.id },
+              data: {
+                Issuance: {
+                  disconnect: true,
+                },
+              },
+            });
+          }
+        }
+
+        await tx.issuanceDetail.deleteMany({
+          where: { issuanceId: id },
+        });
+
+        if (existingIssuance.inventoryId) {
+          await tx.inventory.update({
+            where: { id: existingIssuance.inventoryId },
+            data: {
+              issuance: {
+                disconnect: {
+                  id: existingIssuance.id
+                }
+              },
+            },
+          });
+        }
+
+        await tx.issuance.update({
+          where: { id },
+          data: {
+            inventoryId: null,
+          },
+        });
+
+        const updatedIssuance = await tx.issuance.update({
+          where: { id },
+          data: {
+            issuanceDirective: data.issuanceDirective,
+            validityDate: data.validityDate,
+            status: data.status || "pending",
+            documentNo: data.documentNo,
+            user: user
+              ? {
+                  connect: {
+                    id: user.id,
+                  },
+                }
+              : undefined,
+          },
+        });
+
+        if (data.endUsers && data.endUsers.length > 0) {
+          for (const endUser of data.endUsers) {
+            let createdEndUser;
+
+            if (endUser.id) {
+              const existingEndUser = await tx.endUser.findUnique({
+                where: { id: endUser.id },
+              });
+
+              if (!existingEndUser) {
+                throw new Error(`End user with ID ${endUser.id} not found`);
+              }
+
+              createdEndUser = await tx.endUser.update({
+                where: { id: endUser.id },
+                data: {
+                  Issuance: {
+                    connect: { id: updatedIssuance.id },
+                  },
+                },
+              });
+            } else {
+              createdEndUser = await tx.endUser.create({
+                data: {
+                  name: endUser.name,
+                  Issuance: {
+                    connect: { id: updatedIssuance.id },
+                  },
+                },
+              });
+            }
+
+            if (endUser.inventory && endUser.inventory.length > 0) {
+              for (const inventoryItem of endUser.inventory) {
+                if (!inventoryItem.id) {
+                  throw new Error(
+                    "Inventory ID is required when updating an issuance with inventory items"
+                  );
+                }
+
+                const existingInventory = await tx.inventory.findUnique({
+                  where: { id: inventoryItem.id },
+                  include: { item: true },
+                });
+
+                if (!existingInventory) {
+                  throw new Error(
+                    `Inventory with ID ${inventoryItem.id} not found`
+                  );
+                }
+
+                await tx.inventory.update({
+                  where: { id: inventoryItem.id },
+                  data: {
+                    issuance: {
+                      connect: { id: updatedIssuance.id },
+                    },
+                    endUser: {
+                      connect: { id: createdEndUser.id },
+                    },
+                  },
+                });
+
+                await tx.issuance.update({
+                  where: { id: updatedIssuance.id },
+                  data: {
+                    quantity: inventoryItem.item.quantity || "1",
+                  },
+                });
+
+                await tx.issuanceDetail.create({
+                  data: {
+                    quantity: inventoryItem.item.quantity || "0",
+                    issuanceId: updatedIssuance.id,
+                    status: "pending",
+                    receiptRef: data.receiptRef,
+                    EndUser: {
+                      connect: { id: createdEndUser.id },
+                    },
+                    Issuance: {
+                      connect: { id: updatedIssuance.id },
+                    },
+                  },
+                });
+              }
+            }
+          }
+        }
+
+        return updatedIssuance;
+      });
+
+      return issuance;
+    } catch (error: any) {
+      throw new Error(`Failed to update issuance: ${error.message}`);
+    }
+  }
+
   async getIssuances(
     page: number = 1,
     pageSize: number = 10,
@@ -185,7 +357,7 @@ export class IssuanceService {
           }
         : {};
 
-      const statusFilter = status === 'all' ? undefined : status;
+      const statusFilter = status === "all" ? undefined : status;
 
       const [issuances, total] = await Promise.all([
         prisma.issuance.findMany({
@@ -240,5 +412,9 @@ export class IssuanceService {
     } catch (error: any) {
       throw new Error(`Failed to get issuance: ${error.message}`);
     }
+  }
+
+  async getReceipts() {
+    return await prisma.receipt.findMany();
   }
 }
