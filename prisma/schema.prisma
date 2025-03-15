@@ -33,6 +33,7 @@ model Item {
   location    String
   size        String?
   unit        String?
+  receiptRef  String?
   quantity    String?
   expiryDate  DateTime?   @map("expiry_date")
   price       String?
@@ -91,7 +92,6 @@ model IssuanceDetail {
   inventoryId String?
   Issuance    Issuance[]
   EndUser     EndUser?      @relation(fields: [endUserId], references: [id])
-  receiptRef  String?
   endUserId   String?
 
   @@map("issuance_details")

@@ -145,7 +145,6 @@ export class IssuanceService {
                     quantity: inventoryItem.item.quantity || "0",
                     issuanceId: issuance.id,
                     status: "pending",
-                    receiptRef: data.receiptRef,
                     EndUser: {
                       connect: { id: createdEndUser.id },
                     },
