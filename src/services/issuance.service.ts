@@ -370,7 +370,6 @@ export class IssuanceService {
                   select: {
                     quantity: true,
                     status: true,
-                    receiptRef: true,
                   },
                 },
               },
