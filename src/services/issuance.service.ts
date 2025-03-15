@@ -137,6 +137,16 @@ export class IssuanceService {
                       quantity: inventoryItem.item.quantity || "1",
                     },
                   });
+
+                  // Update the item with receipt reference if provided
+                  if (data.receiptRef && existingInventory.itemId) {
+                    await tx.item.update({
+                      where: { id: existingInventory.itemId },
+                      data: {
+                        receiptRef: data.receiptRef
+                      }
+                    });
+                  }
                 }
 
                 // Create the issuance detail with the connection to the end user
