@@ -8,21 +8,25 @@ datasource db {
 }
 
 model Inventory {
-  id       String        @id @unique @default(uuid())
-  name     String        @unique
-  sizeType SizeType      @default(none)
-  status   ProductStatus @default(active)
-  unit     String?
-  quantity String?       @default("1")
-  item     Item?         @relation(fields: [itemId], references: [id])
-  receipts Receipt[]
+  id          String        @id @unique @default(uuid())
+  name        String        @unique
+  sizeType    SizeType      @default(none)
+  status      ProductStatus @default(active)
+  unit        String?
+  quantity    String?       @default("1")
+  item        Item?         @relation(fields: [itemId], references: [id])
+  receipts    Receipt[]
 
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  endUser   EndUser?   @relation(fields: [endUserId], references: [id])
-  endUserId String?
-  itemId    String?
-  issuance  Issuance[]
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  endUser     EndUser?      @relation(fields: [endUserId], references: [id])
+  endUserId   String?
+  itemId      String?
+  issuance    Issuance?     @relation(fields: [issuanceId], references: [id])
+  issuanceId  String?
+  
+  // Add issuance details relation for more direct access
+  issuanceDetails IssuanceDetail[]
 
   @@map("inventories")
 }
@@ -42,6 +46,8 @@ model Item {
   inventory   Inventory[]
   receipt     Receipt?    @relation(fields: [receiptId], references: [id])
   receiptId   String?
+
+  @@map("items")
 }
 
 model Receipt {
@@ -69,31 +75,36 @@ model Issuance {
   documentNo        String?         @map("document_no")
   quantity          String?         @default("1")
   endUsers          EndUser[]
-  status            ProductStatus   @default(pending)
+  status            ProductStatus   @default(active)
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
   user              User?           @relation(fields: [userId], references: [id])
   userId            String?
-  issuanceDetail    IssuanceDetail? @relation(fields: [issuanceDetailId], references: [id])
-  issuanceDetailId  String?
-  inventory         Inventory?      @relation(fields: [inventoryId], references: [id])
-  inventoryId       String?
+  
+  // Add direct inventory relation
+  inventory         Inventory[]
+  issuanceDetails   IssuanceDetail[]
 
   @@map("issuances")
 }
 
 model IssuanceDetail {
   id          String        @id @unique @default(uuid())
-  quantity    String
-  issuanceId  String
+  quantity    String        @default("1")
   status      ProductStatus @default(pending)
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
+  
+  // Improve relations for easier querying
+  inventory   Inventory?    @relation(fields: [inventoryId], references: [id])
   inventoryId String?
-  Issuance    Issuance[]
-  EndUser     EndUser?      @relation(fields: [endUserId], references: [id])
+  
+  issuance    Issuance      @relation(fields: [issuanceId], references: [id])
+  issuanceId  String
+  
+  endUser     EndUser?      @relation(fields: [endUserId], references: [id])
   endUserId   String?
-
+  
   @@map("issuance_details")
 }
 
@@ -105,7 +116,7 @@ model EndUser {
   updatedAt   DateTime         @updatedAt @map("updated_at")
   Issuance    Issuance?        @relation(fields: [issuanceId], references: [id])
   issuanceId  String?
-  Inventory   Inventory[]
+  inventory   Inventory[]
 
   @@map("end_users")
 }
@@ -148,6 +159,8 @@ model Token {
   expires_at   DateTime?
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String    @unique
+
+  @@map("tokens")
 }
 
 enum UserStatus {
