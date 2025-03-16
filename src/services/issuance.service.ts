@@ -459,41 +459,36 @@ export class IssuanceService {
     try {
       const issuance = await prisma.issuance.findUnique({
         where: { id },
-        include: {
-          // Include just what you need with more direct paths
+        select: {
+          documentNo: true,
+          issuanceDirective: true,
+          issuanceDate: true,
+          validityDate: true,
           endUsers: {
-            include: {
-              inventory: {
-                include: {
-                  item: true,
-                },
-              },
-            },
-          },
-          issuanceDetails: {
-            include: {
-              inventory: {
-                include: {
-                  item: true,
-                },
-              },
-              endUser: true,
-            },
-          },
-          user: {
             select: {
-              firstname: true,
-              lastname: true,
-              username: true,
-              email: true,
-              roles: {
+              id: true,
+              name: true,
+              inventory: {
                 select: {
+                  id: true,
                   name: true,
-                },
-              },
-            },
-          },
-        },
+                  item: {
+                    select: {
+                      id: true,
+                      inventoryId: true,
+                      unit: true,
+                      quantity: true,
+                      size: true,
+                      price: true,
+                      item_name: true,
+                      receiptRef: true,
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       });
 
       if (!issuance) {
