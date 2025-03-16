@@ -1,15 +1,7 @@
 import {
-  EndUser,
-  Inventory,
-  Issuance,
-  IssuanceDetail,
-  Item,
   PrismaClient,
-  ProductStatus,
-  Receipt,
 } from "@prisma/client";
 import argon2 from "argon2";
-import { faker } from "@faker-js/faker";
 
 const prisma = new PrismaClient();
 
