@@ -9,17 +9,15 @@ interface InventoryPayload {
   issuance_date: Date;
   validity_date: Date;
   receiptRef?: string;
-  item: {
-    id?: string;
-    item_name: string;
-    location: string;
-    size?: string;
-    unit?: string;
-    quantity?: string;
-    expiryDate?: Date;
-    price?: string;
-    amount?: string;
-  };
+  itemId?: string;
+  item_name: string;
+  location: string;
+  size?: string;
+  unit?: string;
+  quantity?: string;
+  expiryDate?: Date;
+  price?: string;
+  amount?: string;
 }
 
 interface EndUserPayload {
@@ -128,7 +126,7 @@ export class IssuanceService {
                       connect: { id: issuance.id },
                     },
                     endUser: {
-                      connect: { id: createdEndUser.id },
+                      connect: { id: createdEndUser?.id },
                     },
                   },
                 });
@@ -137,14 +135,14 @@ export class IssuanceService {
                 if (inventoryItem.receiptRef) {
                   await tx.item.create({
                     data: {
-                      item_name: inventoryItem.item?.item_name || "NO NAME",
-                      location: inventoryItem.item?.location || "NO LOCATION",
-                      size: inventoryItem.item?.size || "NO SIZE",
-                      unit: inventoryItem.item.unit,
-                      quantity: inventoryItem.item.quantity,
-                      price: inventoryItem.item?.price || "1",
-                      amount: inventoryItem.item?.amount || "1",
-                      expiryDate: inventoryItem.item?.expiryDate,
+                      item_name: inventoryItem?.item_name || "NO NAME",
+                      location: inventoryItem?.location || "NO LOCATION",
+                      size: inventoryItem?.size || "NO SIZE",
+                      unit: inventoryItem.unit,
+                      quantity: inventoryItem.quantity,
+                      price: inventoryItem?.price || "1",
+                      amount: inventoryItem?.amount || "1",
+                      expiryDate: inventoryItem?.expiryDate,
                       receiptRef: inventoryItem.receiptRef,
                       inventory: {
                         connect: { id: inventoryItem.id },
@@ -157,14 +155,14 @@ export class IssuanceService {
                 await tx.issuance.update({
                   where: { id: issuance.id },
                   data: {
-                    quantity: inventoryItem.item.quantity || "1",
+                    quantity: inventoryItem.quantity || "1",
                   },
                 });
 
                 // 3.5 Create the issuance detail with proper relationships
                 await tx.issuanceDetail.create({
                   data: {
-                    quantity: inventoryItem.item.quantity || "0",
+                    quantity: inventoryItem.quantity || "0",
                     status: "pending",
                     inventory: {
                       connect: { id: inventoryItem.id },
@@ -173,7 +171,7 @@ export class IssuanceService {
                       connect: { id: issuance.id },
                     },
                     endUser: {
-                      connect: { id: createdEndUser.id },
+                      connect: { id: createdEndUser?.id },
                     },
                   },
                 });
