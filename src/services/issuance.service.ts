@@ -69,35 +69,33 @@ export class IssuanceService {
             let createdEndUser;
 
             // 2.1 Handle existing or new end user
-            if (endUser.id) {
+            if (endUser.name) {
               // Verify the end user exists
-              const existingEndUser = await tx.endUser.findUnique({
-                where: { id: endUser.id },
+              const existingEndUser = await tx.endUser.findFirst({
+                where: { name: endUser.name },
               });
 
               if (!existingEndUser) {
-                throw new Error(`End user with ID ${endUser.id} not found`);
+                // Create a new end user
+                createdEndUser = await tx.endUser.create({
+                  data: {
+                    name: endUser.name,
+                    Issuance: {
+                      connect: { id: issuance.id },
+                    },
+                  },
+                });
+              } else {
+                // Connect end user to the issuance
+                createdEndUser = await tx.endUser.update({
+                  where: { id: existingEndUser.id },
+                  data: {
+                    Issuance: {
+                      connect: { id: issuance.id },
+                    },
+                  },
+                });
               }
-
-              // Connect end user to the issuance
-              createdEndUser = await tx.endUser.update({
-                where: { id: endUser.id },
-                data: {
-                  Issuance: {
-                    connect: { id: issuance.id },
-                  },
-                },
-              });
-            } else {
-              // Create a new end user
-              createdEndUser = await tx.endUser.create({
-                data: {
-                  name: endUser.name,
-                  Issuance: {
-                    connect: { id: issuance.id },
-                  },
-                },
-              });
             }
 
             // 3. Process inventory items for this end user
@@ -140,8 +138,7 @@ export class IssuanceService {
                   await tx.item.create({
                     data: {
                       item_name: inventoryItem.item?.item_name || "NO NAME",
-                      location:
-                      inventoryItem.item?.location || "NO LOCATION",
+                      location: inventoryItem.item?.location || "NO LOCATION",
                       size: inventoryItem.item?.size || "NO SIZE",
                       unit: inventoryItem.item.unit,
                       quantity: inventoryItem.item.quantity,
