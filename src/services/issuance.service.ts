@@ -288,6 +288,9 @@ export class IssuanceService {
                   data: {
                     Issuance: { connect: { id: updatedIssuance.id } },
                   },
+                  include: {
+                    inventories: true,
+                  }
                 });
               } else {
                 // Create new end user
@@ -308,7 +311,6 @@ export class IssuanceService {
                     "Inventory ID is required when updating an issuance with inventory items"
                   );
                 }
-
                 // Verify inventory exists
                 const existingInventory = await tx.inventory.findUnique({
                   where: { id: inventoryItem.id },
@@ -344,12 +346,6 @@ export class IssuanceService {
 
                 // If receipt reference is provided, create/update item information
                 if (inventoryItem.receiptRef) {
-                  await tx.item.deleteMany({
-                    where: {
-                      receiptRef: inventoryItem.receiptRef,
-                    }
-                  });
-
                   await tx.item.create({
                     data: {
                       item_name: inventoryItem?.item_name || "NO NAME",
@@ -365,6 +361,8 @@ export class IssuanceService {
                       issuanceDetailId: issuanceDetail.id,
                     },
                   });
+
+                  
                 }
 
                 
@@ -380,6 +378,13 @@ export class IssuanceService {
             }
           }
         }
+
+        await tx.item.deleteMany({
+          where: {
+            receiptId: null,
+            issuanceDetailId: null
+          }
+        });
 
         // Return updated issuance with all related data
         return await tx.issuance.findUnique({
