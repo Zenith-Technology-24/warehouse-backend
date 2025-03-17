@@ -131,26 +131,6 @@ export class IssuanceService {
                   },
                 });
 
-                // If this inventory has an associated item and receipt reference was provided
-                if (inventoryItem.receiptRef) {
-                  await tx.item.create({
-                    data: {
-                      item_name: inventoryItem?.item_name || "NO NAME",
-                      location: inventoryItem?.location || "NO LOCATION",
-                      size: inventoryItem?.size || "NO SIZE",
-                      unit: inventoryItem.unit,
-                      quantity: inventoryItem.quantity,
-                      price: inventoryItem?.price || "1",
-                      amount: inventoryItem?.amount || "1",
-                      expiryDate: inventoryItem?.expiryDate,
-                      receiptRef: inventoryItem.receiptRef,
-                      inventory: {
-                        connect: { id: inventoryItem.id },
-                      },
-                    },
-                  });
-                }
-
                 // 3.4 Update the issuance quantity
                 await tx.issuance.update({
                   where: { id: issuance.id },
@@ -160,7 +140,7 @@ export class IssuanceService {
                 });
 
                 // 3.5 Create the issuance detail with proper relationships
-                await tx.issuanceDetail.create({
+                const issuanceDetail = await tx.issuanceDetail.create({
                   data: {
                     quantity: inventoryItem.quantity || "0",
                     status: "pending",
@@ -175,6 +155,24 @@ export class IssuanceService {
                     },
                   },
                 });
+
+                if (inventoryItem.receiptRef) {
+                  await tx.item.create({
+                    data: {
+                      item_name: inventoryItem?.item_name || "NO NAME",
+                      location: inventoryItem?.location || "NO LOCATION",
+                      size: inventoryItem?.size || "NO SIZE",
+                      unit: inventoryItem.unit,
+                      quantity: inventoryItem.quantity,
+                      price: inventoryItem?.price || "1",
+                      amount: inventoryItem?.amount || "1",
+                      expiryDate: inventoryItem?.expiryDate,
+                      receiptRef: inventoryItem.receiptRef,
+                      inventoryId: inventoryItem.id,
+                      issuanceDetailId: issuanceDetail.id,
+                    },
+                  });
+                }
               }
             }
           }
@@ -227,11 +225,9 @@ export class IssuanceService {
         }
 
         // 1.2: Disconnect and delete all issuance details
-        if (existingIssuance.issuanceDetails.length > 0) {
-          await tx.issuanceDetail.deleteMany({
-            where: { issuanceId: id },
-          });
-        }
+        await tx.issuanceDetail.deleteMany({
+          where: { issuanceId: id },
+        });
 
         // 1.3: Disconnect all inventory items
         if (existingIssuance.inventory.length > 0) {
@@ -264,9 +260,9 @@ export class IssuanceService {
             let createdEndUser;
 
             // 3.1: Handle existing or create new end user
-            if (endUser.id) {
-              const existingEndUser = await tx.endUser.findUnique({
-                where: { id: endUser.id },
+            if (endUser.name) {
+              const existingEndUser = await tx.endUser.findFirst({
+                where: { name: endUser.name },
               });
 
               if (!existingEndUser) {
@@ -275,19 +271,33 @@ export class IssuanceService {
 
               // Connect end user to issuance
               createdEndUser = await tx.endUser.update({
-                where: { id: endUser.id },
+                where: { id: existingEndUser.id },
                 data: {
                   Issuance: { connect: { id: updatedIssuance.id } },
                 },
               });
             } else {
-              // Create new end user
-              createdEndUser = await tx.endUser.create({
-                data: {
-                  name: endUser.name,
-                  Issuance: { connect: { id: updatedIssuance.id } },
-                },
+              // Handle by name first - find or create
+              const existingEndUser = await tx.endUser.findFirst({
+                where: { name: endUser.name },
               });
+
+              if (existingEndUser) {
+                createdEndUser = await tx.endUser.update({
+                  where: { id: existingEndUser.id },
+                  data: {
+                    Issuance: { connect: { id: updatedIssuance.id } },
+                  },
+                });
+              } else {
+                // Create new end user
+                createdEndUser = await tx.endUser.create({
+                  data: {
+                    name: endUser.name,
+                    Issuance: { connect: { id: updatedIssuance.id } },
+                  },
+                });
+              }
             }
 
             // 3.2: Process inventory items for this end user
@@ -321,9 +331,9 @@ export class IssuanceService {
                 });
 
                 // Create issuance detail with proper relation fields
-                await tx.issuanceDetail.create({
+                const issuanceDetail = await tx.issuanceDetail.create({
                   data: {
-                    quantity: inventoryItem.item.quantity || "0",
+                    quantity: inventoryItem.quantity || "0",
                     status: "pending",
                     // Use the correct relation field names as per schema
                     inventory: { connect: { id: inventoryItem.id } },
@@ -332,11 +342,38 @@ export class IssuanceService {
                   },
                 });
 
+                // If receipt reference is provided, create/update item information
+                if (inventoryItem.receiptRef) {
+                  await tx.item.deleteMany({
+                    where: {
+                      receiptRef: inventoryItem.receiptRef,
+                    }
+                  });
+
+                  await tx.item.create({
+                    data: {
+                      item_name: inventoryItem?.item_name || "NO NAME",
+                      location: inventoryItem?.location || "NO LOCATION",
+                      size: inventoryItem?.size || "NO SIZE",
+                      unit: inventoryItem.unit,
+                      quantity: inventoryItem.quantity,
+                      price: inventoryItem?.price || "1",
+                      amount: inventoryItem?.amount || "1",
+                      expiryDate: inventoryItem?.expiryDate,
+                      receiptRef: inventoryItem.receiptRef,
+                      inventoryId: existingInventory.id,
+                      issuanceDetailId: issuanceDetail.id,
+                    },
+                  });
+                }
+
+                
+
                 // Update issuance quantity
                 await tx.issuance.update({
                   where: { id: updatedIssuance.id },
                   data: {
-                    quantity: inventoryItem.item.quantity || "1",
+                    quantity: inventoryItem.quantity || "1",
                   },
                 });
               }
@@ -464,38 +501,76 @@ export class IssuanceService {
           issuanceDirective: true,
           issuanceDate: true,
           validityDate: true,
+          issuanceStatus: true,
           endUsers: {
             select: {
               id: true,
               name: true,
-              inventory: {
+              inventories: {
                 select: {
+                  items: true,
+                  status: true, 
                   id: true,
-                  name: true,
-                  item: {
-                    select: {
-                      id: true,
-                      inventoryId: true,
-                      unit: true,
-                      quantity: true,
-                      size: true,
-                      price: true,
-                      item_name: true,
-                      receiptRef: true,
-                    }
-                  }
+                  quantity: true,
                 }
-              }
-            }
-          }
-        }
+              },
+            },
+          },
+        },
       });
 
       if (!issuance) {
         throw new Error(`Issuance with ID ${id} not found`);
       }
 
-      return issuance;
+      // Replace the problematic code with:
+      const response = {
+        ...issuance,
+        endUsers: await Promise.all(
+          issuance.endUsers.map(async (endUser) => {
+            return {
+              id: endUser.id,
+              name: endUser.name,
+              inventories: await Promise.all(
+                endUser.inventories.map(async (inventory) => {
+                  const itemPromises = inventory.items.map(async (item) => {
+                    const inventoryData = await prisma.inventory.findUnique({
+                      where: { id: item.inventoryId || "" },
+                      select: {
+                        sizeType: true,
+                        id: true,
+                        quantity: true,
+                        unit: true,
+                        status: true
+                      }
+                    });
+                    return {
+                      id: item.id,
+                      unit: item.unit,
+                      max_quantity: item.quantity,
+                      size: item.size,
+                      price: item.price,
+                      name: item.item_name,
+                      ...inventoryData,
+                    };
+                  });
+
+                  // Get the first item only since you seem to want just one
+                  const itemData = (await Promise.all(itemPromises))[0];
+
+                  return {
+                    id: inventory.id,
+                    status: inventory.status,
+                    item: itemData,
+                  };
+                })
+              ),
+            };
+          })
+        ),
+      };
+
+      return response;
     } catch (error: any) {
       throw new Error(`Failed to get issuance: ${error.message}`);
     }
