@@ -58,7 +58,7 @@ model Receipt {
   source            String?
   quantity          String?       @default("1")
   status            ProductStatus @default(pending)
-  issuanceDirective String?       @map("issuance_directive")
+  issuanceDirective String?       @unique @map("issuance_directive")
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @updatedAt @map("updated_at")
   inventory         Inventory[]
