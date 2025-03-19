@@ -515,6 +515,7 @@ export class IssuanceService {
                   status: true, 
                   id: true,
                   quantity: true,
+                  issuanceId: true,
                 }
               },
             },
@@ -535,7 +536,9 @@ export class IssuanceService {
               id: endUser.id,
               name: endUser.name,
               inventory: await Promise.all(
-                endUser.inventories.map(async (inventory) => {
+                endUser.inventories.filter((item) => {
+                  return item.issuanceId === id;
+                }).map(async (inventory) => {
                   const itemPromises = inventory.items.map(async (item) => {
                     const inventoryData = await prisma.inventory.findUnique({
                       where: { id: item.inventoryId || "" },
