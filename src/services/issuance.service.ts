@@ -557,6 +557,7 @@ export class IssuanceService {
                       size: item.size,
                       price: item.price,
                       name: item.item_name,
+                      amount: item.amount,
                       ...inventoryData,
                     };
                   });
