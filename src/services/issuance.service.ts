@@ -362,9 +362,6 @@ export class IssuanceService {
                     },
                   });
                 }
-
-                
-
                 // Update issuance quantity
                 await tx.issuance.update({
                   where: { id: updatedIssuance.id },
@@ -514,6 +511,7 @@ export class IssuanceService {
                   issuanceId: id,
                 },
                 select: {
+                  inventoryId: true,
                   items: true,
                   status: true, 
                   id: true,
@@ -578,7 +576,8 @@ export class IssuanceService {
                   const itemData = (await Promise.all(itemPromises))[0];
 
                   return {
-                    id: inventory.id,
+                    id: inventory.inventoryId,
+                    issuanceDetailId: inventory.id,
                     status: inventory.status,
                     item: itemData,
                   };
