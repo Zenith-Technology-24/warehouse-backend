@@ -142,7 +142,7 @@ export class IssuanceService {
                 // 3.5 Create the issuance detail with proper relationships
                 const issuanceDetail = await tx.issuanceDetail.create({
                   data: {
-                    quantity: inventoryItem.quantity || "0",
+                    quantity: String(inventoryItem.quantity) || "0",
                     status: "pending",
                     inventory: {
                       connect: { id: inventoryItem.id },
@@ -335,7 +335,7 @@ export class IssuanceService {
                 // Create issuance detail with proper relation fields
                 const issuanceDetail = await tx.issuanceDetail.create({
                   data: {
-                    quantity: inventoryItem.quantity || "0",
+                    quantity: String(inventoryItem.quantity) || "0",
                     status: "pending",
                     // Use the correct relation field names as per schema
                     inventory: { connect: { id: inventoryItem.id } },
