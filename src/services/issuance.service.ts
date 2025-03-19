@@ -159,7 +159,7 @@ export class IssuanceService {
                 if (inventoryItem.receiptRef) {
                   await tx.item.create({
                     data: {
-                      item_name: inventoryItem?.item_name || "NO NAME",
+                      item_name: inventoryItem?.name || "NO NAME",
                       location: inventoryItem?.location || "NO LOCATION",
                       size: inventoryItem?.size || "NO SIZE",
                       unit: inventoryItem.unit,
@@ -361,8 +361,6 @@ export class IssuanceService {
                       issuanceDetailId: issuanceDetail.id,
                     },
                   });
-
-                  
                 }
 
                 
