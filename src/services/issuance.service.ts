@@ -550,11 +550,22 @@ export class IssuanceService {
                         status: true
                       }
                     });
+
+                    const receiptData = await prisma.receipt.findUnique({
+                      where: {
+                        issuanceDirective: item.receiptRef || "",
+                      },
+                      select: {
+                        quantity: true,
+                      }
+                    });
+
                     return {
                       id: item.id,
                       unit: item.unit,
                       receiptRef: item.receiptRef,
-                      max_quantity: item.quantity,
+                      max_quantity: receiptData?.quantity || item.quantity,
+                      quantity: item.quantity,
                       size: item.size,
                       price: item.price,
                       name: item.item_name,
