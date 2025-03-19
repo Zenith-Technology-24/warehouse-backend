@@ -135,7 +135,7 @@ export class IssuanceService {
                 await tx.issuance.update({
                   where: { id: issuance.id },
                   data: {
-                    quantity: inventoryItem.quantity || "1",
+                    quantity: String(inventoryItem.quantity) || "1",
                   },
                 });
 
