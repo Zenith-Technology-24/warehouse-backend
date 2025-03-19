@@ -552,6 +552,7 @@ export class IssuanceService {
                     return {
                       id: item.id,
                       unit: item.unit,
+                      receiptRef: item.receiptRef,
                       max_quantity: item.quantity,
                       size: item.size,
                       price: item.price,
