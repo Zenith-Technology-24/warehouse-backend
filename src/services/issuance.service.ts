@@ -692,7 +692,7 @@ export class IssuanceService {
     });
 
     const issuances = await prisma.issuanceDetail.findMany({
-      where: { id: issuance.issuanceId }
+      where: { issuanceId: issuance.issuanceId }
     })
 
     const pendingCount = issuances.filter((item) => item.status === "pending");
