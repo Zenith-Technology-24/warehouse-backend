@@ -366,7 +366,7 @@ export class IssuanceService {
                 await tx.issuance.update({
                   where: { id: updatedIssuance.id },
                   data: {
-                    quantity: String(inventoryItem.quantity) || "1",
+                    quantity: String(inventoryItem.quantity) || "1"
                   },
                 });
               }
@@ -627,5 +627,26 @@ export class IssuanceService {
     }
 
     return response;
+  }
+
+  async withdrawIssuance(id: string) {
+    return await prisma.issuance.update({
+      where: { id },
+      data: {
+        status: "withdrawn",
+      },
+    });
+  }
+
+  async withdrawAllIssuance(id: string) {
+    return await prisma.issuanceDetail.updateMany({
+      where: { 
+        issuanceId: id,
+        status: "pending",
+       },
+      data: {
+        status: "withdrawn",
+      },
+    });
   }
 }

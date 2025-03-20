@@ -44,3 +44,13 @@ export const updateIssuance = async (c: Context & { user: User }) => {
 export const getInventoryIssuance = async (c: Context) => {
   return c.json(await inventoryService.issuanceInventories(), 200);
 };
+
+export const withdrawIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.withdrawIssuance(id), 200);
+}
+
+export const withdrawAllIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.withdrawAllIssuance(id), 200);
+}
