@@ -679,12 +679,29 @@ export class IssuanceService {
   }
 
   async withdrawIssuance(id: string) {
-    return await prisma.issuanceDetail.update({
+    const issuance = await prisma.issuance.findUnique({
       where: { id },
-      data: {
-        status: "withdrawn",
+      include: {
+        issuanceDetails: true,
       },
     });
+
+    // Count all the issuanceDetails that are pending
+    const pendingCount = issuance?.issuanceDetails.filter(
+      (detail) => detail.status === "pending"
+    ).length;
+    
+    if (pendingCount === 0) {
+      await prisma.issuance.update({
+        where: { id },
+        data: {
+          status: "withdrawn",
+          issuanceStatus: "withdrawn",
+        },
+      });
+    }
+
+    return issuance;
   }
 
   async withdrawAllIssuance(id: string) {
