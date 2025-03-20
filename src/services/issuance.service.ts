@@ -656,6 +656,7 @@ export class IssuanceService {
       where: { id },
       data: {
         status: "withdrawn",
+        issuanceStatus: "withdrawn",
       },
     });
 
