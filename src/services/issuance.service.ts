@@ -520,6 +520,19 @@ export class IssuanceService {
               },
             },
           },
+          user: {
+            select: {
+              firstname: true,
+              lastname: true,
+              username: true,
+              email: true,
+              roles: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          }
         },
       });
 
