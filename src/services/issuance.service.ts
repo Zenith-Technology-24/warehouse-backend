@@ -239,6 +239,8 @@ export class IssuanceService {
             await tx.issuance.update({
               where: { id },
               data: {
+                status: "pending",
+                issuanceStatus: "pending",
                 endUsers: {
                   disconnect: existingIssuance.endUsers.map((user) => ({
                     id: user.id,
@@ -690,7 +692,7 @@ export class IssuanceService {
     const pendingCount = issuance?.issuanceDetails.filter(
       (detail) => detail.status === "pending"
     ).length;
-    
+
     if (pendingCount === 0) {
       await prisma.issuance.update({
         where: { id },
