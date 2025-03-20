@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { issuances, ProductStatus, User } from "@prisma/client";
+import { issuances, Prisma, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
 
 interface InventoryPayload {
@@ -60,19 +60,19 @@ export class IssuanceService {
             },
           },
         });
-  
+
         // 2. Process each end user
         if (data.endUsers && data.endUsers.length > 0) {
           for (const endUser of data.endUsers) {
             let createdEndUser;
-  
+
             // 2.1 Handle existing or new end user
             if (endUser.name) {
               // Find existing end user by name
               const existingEndUser = await tx.endUser.findFirst({
                 where: { name: endUser.name },
               });
-  
+
               if (!existingEndUser) {
                 // Create a new end user
                 createdEndUser = await tx.endUser.create({
@@ -91,15 +91,15 @@ export class IssuanceService {
                   where: { id: issuance.id },
                   data: {
                     endUsers: {
-                      connect: { id: existingEndUser.id }
-                    }
-                  }
+                      connect: { id: existingEndUser.id },
+                    },
+                  },
                 });
-                
+
                 createdEndUser = existingEndUser;
               }
             }
-  
+
             // 3. Process inventory items for this end user
             if (endUser.inventory && endUser.inventory.length > 0) {
               for (const inventoryItem of endUser.inventory) {
@@ -109,22 +109,22 @@ export class IssuanceService {
                     "Inventory ID is required when creating an issuance with inventory items"
                   );
                 }
-  
+
                 // 3.2 Verify the inventory exists and get its details
                 const existingInventory = await tx.inventory.findUnique({
                   where: { id: inventoryItem.id },
                   include: { item: true },
                 });
-  
+
                 if (!existingInventory) {
                   throw new Error(
                     `Inventory with ID ${inventoryItem.id} not found`
                   );
                 }
-  
+
                 // 3.3 Connect inventory to issuance and end user - fixed to avoid affecting other relations
                 // Instead of updating the inventory directly, we'll create proper relations through issuanceDetail
-                
+
                 // 3.4 Create the issuance detail with proper relationships
                 const issuanceDetail = await tx.issuanceDetail.create({
                   data: {
@@ -136,12 +136,14 @@ export class IssuanceService {
                     issuance: {
                       connect: { id: issuance.id },
                     },
-                    endUser: createdEndUser ? {
-                      connect: { id: createdEndUser.id },
-                    } : undefined,
+                    endUser: createdEndUser
+                      ? {
+                          connect: { id: createdEndUser.id },
+                        }
+                      : undefined,
                   },
                 });
-  
+
                 // 3.5 Update the issuance quantity - just once per type
                 await tx.issuance.update({
                   where: { id: issuance.id },
@@ -149,7 +151,7 @@ export class IssuanceService {
                     quantity: String(inventoryItem.quantity) || "1",
                   },
                 });
-  
+
                 // 3.6 Create item if receipt reference is provided
                 if (inventoryItem.receiptRef) {
                   await tx.item.create({
@@ -172,7 +174,7 @@ export class IssuanceService {
             }
           }
         }
-  
+
         // Return the created issuance with full details
         return await tx.issuance.findUnique({
           where: { id: issuance.id },
@@ -201,7 +203,7 @@ export class IssuanceService {
           },
         });
       });
-  
+
       return issuance;
     } catch (error: any) {
       throw new Error(`Failed to create issuance: ${error.message}`);
@@ -214,222 +216,218 @@ export class IssuanceService {
     user: User
   ): Promise<issuances> {
     try {
-      const issuance = await prisma.$transaction(async (tx) => {
-        // Get existing issuance with all related data
-        const existingIssuance = await tx.issuance.findUnique({
-          where: { id },
-          include: {
-            endUsers: true,
-            issuanceDetails: true,
-            inventory: true,
-          },
-        });
-
-        if (!existingIssuance) {
-          throw new Error(`issuances with ID ${id} not found`);
-        }
-
-        // Step 1: Disconnect and clean up all existing relationships
-
-        // 1.1: Disconnect all end users
-        if (existingIssuance.endUsers.length > 0) {
-          await tx.issuance.update({
+      const issuance = await prisma.$transaction(
+        async (tx) => {
+          // Get existing issuance with all related data
+          const existingIssuance = await tx.issuance.findUnique({
             where: { id },
-            data: {
-              endUsers: {
-                disconnect: existingIssuance.endUsers.map((user) => ({
-                  id: user.id,
-                })),
-              },
+            include: {
+              endUsers: true,
+              issuanceDetails: true,
+              inventory: true,
             },
           });
-        }
 
-        // 1.2: Disconnect and delete all issuance details
-        await tx.issuanceDetail.deleteMany({
-          where: { issuanceId: id },
-        });
+          if (!existingIssuance) {
+            throw new Error(`issuances with ID ${id} not found`);
+          }
 
-        // 1.3: Disconnect all inventory items
-        if (existingIssuance.inventory.length > 0) {
-          for (const inventory of existingIssuance.inventory) {
-            await tx.inventory.update({
-              where: { id: inventory.id },
+          // Step 1: Disconnect and clean up all existing relationships
+
+          // 1.1: Disconnect all end users
+          if (existingIssuance.endUsers.length > 0) {
+            await tx.issuance.update({
+              where: { id },
               data: {
-                issuance: { disconnect: true },
-                endUser: { disconnect: true },
+                endUsers: {
+                  disconnect: existingIssuance.endUsers.map((user) => ({
+                    id: user.id,
+                  })),
+                },
               },
             });
           }
-        }
 
-        // Step 2: Update the base issuance record
-        const updatedIssuance = await tx.issuance.update({
-          where: { id },
-          data: {
-            issuanceDirective: data.issuanceDirective,
-            validityDate: data.validityDate,
-            status: data.status || "pending",
-            documentNo: data.documentNo,
-            user: user ? { connect: { id: user.id } } : undefined,
-          },
-        });
+          // 1.2: Disconnect and delete all issuance details
+          await tx.issuanceDetail.deleteMany({
+            where: { issuanceId: id },
+          });
 
-        // Step 3: Process new end users and inventory items
-        if (data.endUsers && data.endUsers.length > 0) {
-          for (const endUser of data.endUsers) {
-            let createdEndUser;
-
-            // 3.1: Handle existing or create new end user
-            if (endUser.name) {
-              const existingEndUser = await tx.endUser.findFirst({
-                where: { name: endUser.name },
-              });
-
-              if (!existingEndUser) {
-                throw new Error(`End user with ID ${endUser.id} not found`);
-              }
-
-              // Connect end user to issuance
-              createdEndUser = await tx.endUser.update({
-                where: { id: existingEndUser.id },
+          // 1.3: Disconnect all inventory items
+          if (existingIssuance.inventory.length > 0) {
+            for (const inventory of existingIssuance.inventory) {
+              await tx.inventory.update({
+                where: { id: inventory.id },
                 data: {
-                  issuances: { connect: { id: updatedIssuance.id } },
+                  issuance: { disconnect: true },
+                  endUser: { disconnect: true },
                 },
               });
-            } else {
-              // Handle by name first - find or create
-              const existingEndUser = await tx.endUser.findFirst({
-                where: { name: endUser.name },
-              });
-
-              if (existingEndUser) {
-                createdEndUser = await tx.endUser.update({
-                  where: { id: existingEndUser.id },
-                  data: {
-                    issuances: { connect: { id: updatedIssuance.id } },
-                  },
-                  include: {
-                    inventories: true,
-                  }
-                });
-              } else {
-                // Create new end user
-                createdEndUser = await tx.endUser.create({
-                  data: {
-                    name: endUser.name,
-                    issuances: { connect: { id: updatedIssuance.id } },
-                  },
-                });
-              }
             }
+          }
 
-            // 3.2: Process inventory items for this end user
-            if (endUser.inventory && endUser.inventory.length > 0) {
-              for (const inventoryItem of endUser.inventory) {
-                if (!inventoryItem.id) {
-                  throw new Error(
-                    "Inventory ID is required when updating an issuance with inventory items"
-                  );
-                }
-                // Verify inventory exists
-                const existingInventory = await tx.inventory.findUnique({
-                  where: { id: inventoryItem.id },
-                  include: { item: true },
+          // Step 2: Update the base issuance record
+          const updatedIssuance = await tx.issuance.update({
+            where: { id },
+            data: {
+              issuanceDirective: data.issuanceDirective,
+              validityDate: data.validityDate,
+              status: data.status || "pending",
+              documentNo: data.documentNo,
+              user: user ? { connect: { id: user.id } } : undefined,
+            },
+          });
+
+          // Step 3: Process new end users and inventory items
+          if (data.endUsers && data.endUsers.length > 0) {
+            for (const endUser of data.endUsers) {
+              let createdEndUser;
+
+              // 3.1: Handle existing or create new end user
+              if (endUser.name) {
+                // Find existing end user by name
+                const existingEndUser = await tx.endUser.findFirst({
+                  where: { name: endUser.name },
                 });
 
-                if (!existingInventory) {
-                  throw new Error(
-                    `Inventory with ID ${inventoryItem.id} not found`
-                  );
-                }
-
-                // Connect inventory to issuance and end user
-                await tx.inventory.update({
-                  where: { id: inventoryItem.id },
-                  data: {
-                    issuance: { connect: { id: updatedIssuance.id } },
-                    endUser: { connect: { id: createdEndUser.id } },
-                  },
-                });
-
-                // Create issuance detail with proper relation fields
-                const issuanceDetail = await tx.issuanceDetail.create({
-                  data: {
-                    quantity: String(inventoryItem.quantity) || "0",
-                    status: "pending",
-                    // Use the correct relation field names as per schema
-                    inventory: { connect: { id: inventoryItem.id } },
-                    issuance: { connect: { id: updatedIssuance.id } },
-                    endUser: { connect: { id: createdEndUser.id } },
-                  },
-                });
-
-                // If receipt reference is provided, create/update item information
-                if (inventoryItem.receiptRef) {
-                  await tx.item.create({
+                if (existingEndUser) {
+                  // Connect existing end user to the updated issuance
+                  await tx.issuance.update({
+                    where: { id: updatedIssuance.id },
                     data: {
-                      item_name: inventoryItem?.name || "NO NAME",
-                      location: inventoryItem?.location || "NO LOCATION",
-                      size: inventoryItem?.size || "NO SIZE",
-                      unit: inventoryItem.unit,
-                      quantity: String(inventoryItem.quantity),
-                      price: String(inventoryItem?.price) || "1",
-                      amount: String(inventoryItem?.amount) || "1",
-                      expiryDate: inventoryItem?.expiryDate,
-                      receiptRef: inventoryItem.receiptRef,
-                      inventoryId: existingInventory.id,
-                      issuanceDetailId: issuanceDetail.id,
+                      endUsers: {
+                        connect: { id: existingEndUser.id },
+                      },
+                    },
+                  });
+
+                  createdEndUser = existingEndUser;
+                } else {
+                  // Create a new end user and connect to the issuance
+                  createdEndUser = await tx.endUser.create({
+                    data: {
+                      name: endUser.name,
+                      issuances: {
+                        connect: { id: updatedIssuance.id },
+                      },
                     },
                   });
                 }
-                // Update issuance quantity
-                await tx.issuance.update({
-                  where: { id: updatedIssuance.id },
-                  data: {
-                    quantity: String(inventoryItem.quantity) || "1"
-                  },
-                });
+              }
+
+              // 3.2: Process inventory items for this end user
+              if (endUser.inventory && endUser.inventory.length > 0) {
+                for (const inventoryItem of endUser.inventory) {
+                  if (!inventoryItem.id) {
+                    throw new Error(
+                      "Inventory ID is required when updating an issuance with inventory items"
+                    );
+                  }
+
+                  // Verify inventory exists
+                  const existingInventory = await tx.inventory.findUnique({
+                    where: { id: inventoryItem.id },
+                    include: { item: true },
+                  });
+
+                  if (!existingInventory) {
+                    throw new Error(
+                      `Inventory with ID ${inventoryItem.id} not found`
+                    );
+                  }
+
+                  // Create issuance detail with proper relation fields
+                  const issuanceDetail = await tx.issuanceDetail.create({
+                    data: {
+                      quantity: String(inventoryItem.quantity) || "0",
+                      status: "pending",
+                      inventory: {
+                        connect: { id: inventoryItem.id },
+                      },
+                      issuance: {
+                        connect: { id: updatedIssuance.id },
+                      },
+                      endUser: createdEndUser
+                        ? {
+                            connect: { id: createdEndUser.id },
+                          }
+                        : undefined,
+                    },
+                  });
+
+                  // If receipt reference is provided, create/update item information
+                  if (inventoryItem.receiptRef) {
+                    await tx.item.create({
+                      data: {
+                        item_name: inventoryItem?.name || "NO NAME",
+                        location: inventoryItem?.location || "NO LOCATION",
+                        size: inventoryItem?.size || "NO SIZE",
+                        unit: inventoryItem.unit,
+                        quantity: String(inventoryItem.quantity),
+                        price: String(inventoryItem?.price) || "1",
+                        amount: String(inventoryItem?.amount) || "1",
+                        expiryDate: inventoryItem?.expiryDate,
+                        receiptRef: inventoryItem.receiptRef,
+                        inventoryId: existingInventory.id,
+                        issuanceDetailId: issuanceDetail.id,
+                      },
+                    });
+                  }
+
+                  // Update issuance quantity
+                  await tx.issuance.update({
+                    where: { id: updatedIssuance.id },
+                    data: {
+                      quantity: String(inventoryItem.quantity) || "1",
+                    },
+                  });
+                }
               }
             }
           }
-        }
 
-        await tx.item.deleteMany({
-          where: {
-            receiptId: null,
-            issuanceDetailId: null
-          }
-        });
-
-        // Return updated issuance with all related data
-        return await tx.issuance.findUnique({
-          where: { id: updatedIssuance.id },
-          include: {
-            endUsers: true,
-            issuanceDetails: {
-              include: {
-                inventory: true,
-                endUser: true,
-              },
+          // Clean up orphaned items
+          await tx.item.deleteMany({
+            where: {
+              receiptId: null,
+              issuanceDetailId: null,
             },
-            inventory: true,
-            user: {
-              select: {
-                firstname: true,
-                lastname: true,
-                username: true,
-                email: true,
-                roles: {
-                  select: {
-                    name: true,
+          });
+
+          // Return updated issuance with all related data
+          return await tx.issuance.findUnique({
+            where: { id: updatedIssuance.id },
+            include: {
+              endUsers: true,
+              issuanceDetails: {
+                include: {
+                  inventory: true,
+                  endUser: true,
+                },
+              },
+              inventory: true,
+              user: {
+                select: {
+                  firstname: true,
+                  lastname: true,
+                  username: true,
+                  email: true,
+                  roles: {
+                    select: {
+                      name: true,
+                    },
                   },
                 },
               },
             },
-          },
-        });
-      });
+          });
+        },
+        {
+          timeout: 10000, // Increase timeout to 10 seconds
+          maxWait: 5000, // Maximum time to wait to acquire a transaction
+          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, // Optional: can help with performance
+        }
+      );
 
       if (!issuance) {
         throw new Error(`issuances with ID ${id} not found`);
@@ -472,9 +470,9 @@ export class IssuanceService {
                   where: {
                     issuance: {
                       id: {
-                        not: undefined
-                      }
-                    }
+                        not: undefined,
+                      },
+                    },
                   },
                   select: {
                     quantity: true,
@@ -493,7 +491,7 @@ export class IssuanceService {
               include: {
                 inventory: true,
                 endUser: true,
-              }
+              },
             },
             user: {
               select: {
@@ -548,10 +546,10 @@ export class IssuanceService {
                 select: {
                   inventoryId: true,
                   items: true,
-                  status: true, 
+                  status: true,
                   id: true,
                   quantity: true,
-                }
+                },
               },
             },
           },
@@ -567,7 +565,7 @@ export class IssuanceService {
                 },
               },
             },
-          }
+          },
         },
       });
 
@@ -593,8 +591,8 @@ export class IssuanceService {
                         id: true,
                         quantity: true,
                         unit: true,
-                        status: true
-                      }
+                        status: true,
+                      },
                     });
 
                     const receiptData = await prisma.receipt.findUnique({
@@ -603,10 +601,13 @@ export class IssuanceService {
                       },
                       select: {
                         quantity: true,
-                      }
+                      },
                     });
 
+                    console.log("receiptData", item);
+
                     return {
+                      ...inventoryData,
                       id: item.id,
                       unit: item.unit,
                       receiptRef: item.receiptRef,
@@ -616,7 +617,7 @@ export class IssuanceService {
                       price: item.price,
                       name: item.item_name,
                       amount: item.amount,
-                      ...inventoryData,
+                      
                     };
                   });
 
@@ -696,10 +697,10 @@ export class IssuanceService {
     });
 
     return await prisma.issuanceDetail.updateMany({
-      where: { 
+      where: {
         issuanceId: id,
         status: "pending",
-       },
+      },
       data: {
         status: "withdrawn",
       },
