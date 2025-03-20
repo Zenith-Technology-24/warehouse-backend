@@ -630,7 +630,7 @@ export class IssuanceService {
   }
 
   async withdrawIssuance(id: string) {
-    return await prisma.issuance.update({
+    return await prisma.issuanceDetail.update({
       where: { id },
       data: {
         status: "withdrawn",
