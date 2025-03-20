@@ -76,7 +76,7 @@ model Issuance {
   validityDate      DateTime      @map("validity_date")
   documentNo        String?       @map("document_no")
   quantity          String?       @default("1")
-  endUsers          EndUser[]
+  endUsers          EndUser[]     // This creates the many-to-many relationship
   status            ProductStatus @default(active)
   issuanceStatus    ProductStatus @default(pending)
   createdAt         DateTime      @default(now()) @map("created_at")
@@ -119,12 +119,16 @@ model EndUser {
   inventories IssuanceDetail[]
   createdAt   DateTime         @default(now()) @map("created_at")
   updatedAt   DateTime         @updatedAt @map("updated_at")
-  Issuance    Issuance?        @relation(fields: [issuanceId], references: [id])
-  issuanceId  String?
+  // Remove the single Issuance relation
+  // Issuance    Issuance?        @relation(fields: [issuanceId], references: [id])
+  // issuanceId  String?
+  // Instead add a many-to-many relationship
+  issuances   Issuance[]      
   inventory   Inventory[]
 
   @@map("end_users")
 }
+
 
 model Role {
   id          String   @id @unique @default(uuid())

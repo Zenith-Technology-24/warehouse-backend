@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Issuance, ProductStatus, User } from "@prisma/client";
+import { issuances, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
 
 interface InventoryPayload {
@@ -43,7 +43,7 @@ export interface IssuanceResponseType {
 }
 
 export class IssuanceService {
-  async create(data: CreateIssuanceDto, user: User): Promise<Issuance> {
+  async create(data: CreateIssuanceDto, user: User): Promise<issuances> {
     try {
       const issuance = await prisma.$transaction(async (tx) => {
         // 1. Create the main issuance record
@@ -78,22 +78,25 @@ export class IssuanceService {
                 createdEndUser = await tx.endUser.create({
                   data: {
                     name: endUser.name,
-                    Issuance: {
+                    // Use issuances (capital I) to match schema naming
+                    issuances: {
                       connect: { id: issuance.id },
                     },
                   },
                 });
               } else {
-                // Connect existing end user to the issuance
-                // Using connect instead of update to avoid disconnecting from other issuances
-                createdEndUser = await tx.endUser.update({
-                  where: { id: existingEndUser.id },
+                // Connect existing end user to the NEW issuance
+                // WITHOUT disconnecting from other issuances
+                await tx.issuance.update({
+                  where: { id: issuance.id },
                   data: {
-                    Issuance: {
-                      connect: { id: issuance.id },
-                    },
-                  },
+                    endUsers: {
+                      connect: { id: existingEndUser.id }
+                    }
+                  }
                 });
+                
+                createdEndUser = existingEndUser;
               }
             }
   
@@ -209,7 +212,7 @@ export class IssuanceService {
     id: string,
     data: CreateIssuanceDto,
     user: User
-  ): Promise<Issuance> {
+  ): Promise<issuances> {
     try {
       const issuance = await prisma.$transaction(async (tx) => {
         // Get existing issuance with all related data
@@ -223,7 +226,7 @@ export class IssuanceService {
         });
 
         if (!existingIssuance) {
-          throw new Error(`Issuance with ID ${id} not found`);
+          throw new Error(`issuances with ID ${id} not found`);
         }
 
         // Step 1: Disconnect and clean up all existing relationships
@@ -291,7 +294,7 @@ export class IssuanceService {
               createdEndUser = await tx.endUser.update({
                 where: { id: existingEndUser.id },
                 data: {
-                  Issuance: { connect: { id: updatedIssuance.id } },
+                  issuances: { connect: { id: updatedIssuance.id } },
                 },
               });
             } else {
@@ -304,7 +307,7 @@ export class IssuanceService {
                 createdEndUser = await tx.endUser.update({
                   where: { id: existingEndUser.id },
                   data: {
-                    Issuance: { connect: { id: updatedIssuance.id } },
+                    issuances: { connect: { id: updatedIssuance.id } },
                   },
                   include: {
                     inventories: true,
@@ -315,7 +318,7 @@ export class IssuanceService {
                 createdEndUser = await tx.endUser.create({
                   data: {
                     name: endUser.name,
-                    Issuance: { connect: { id: updatedIssuance.id } },
+                    issuances: { connect: { id: updatedIssuance.id } },
                   },
                 });
               }
@@ -429,7 +432,7 @@ export class IssuanceService {
       });
 
       if (!issuance) {
-        throw new Error(`Issuance with ID ${id} not found`);
+        throw new Error(`issuances with ID ${id} not found`);
       }
 
       return issuance;
@@ -466,9 +469,17 @@ export class IssuanceService {
             endUsers: {
               include: {
                 inventories: {
+                  where: {
+                    issuance: {
+                      id: {
+                        not: undefined
+                      }
+                    }
+                  },
                   select: {
                     quantity: true,
                     status: true,
+                    issuanceId: true,
                   },
                 },
                 inventory: {
@@ -477,6 +488,12 @@ export class IssuanceService {
                   },
                 },
               },
+            },
+            issuanceDetails: {
+              include: {
+                inventory: true,
+                endUser: true,
+              }
             },
             user: {
               select: {
@@ -510,7 +527,7 @@ export class IssuanceService {
     }
   }
 
-  async getIssuanceById(id: string): Promise<Issuance> {
+  async getIssuanceById(id: string): Promise<issuances> {
     try {
       const issuance = await prisma.issuance.findUnique({
         where: { id },
@@ -555,7 +572,7 @@ export class IssuanceService {
       });
 
       if (!issuance) {
-        throw new Error(`Issuance with ID ${id} not found`);
+        throw new Error(`issuances with ID ${id} not found`);
       }
 
       // Replace the problematic code with:
