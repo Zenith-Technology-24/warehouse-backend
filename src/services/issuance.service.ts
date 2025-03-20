@@ -60,19 +60,19 @@ export class IssuanceService {
             },
           },
         });
-
+  
         // 2. Process each end user
         if (data.endUsers && data.endUsers.length > 0) {
           for (const endUser of data.endUsers) {
             let createdEndUser;
-
+  
             // 2.1 Handle existing or new end user
             if (endUser.name) {
-              // Verify the end user exists
+              // Find existing end user by name
               const existingEndUser = await tx.endUser.findFirst({
                 where: { name: endUser.name },
               });
-
+  
               if (!existingEndUser) {
                 // Create a new end user
                 createdEndUser = await tx.endUser.create({
@@ -84,7 +84,8 @@ export class IssuanceService {
                   },
                 });
               } else {
-                // Connect end user to the issuance
+                // Connect existing end user to the issuance
+                // Using connect instead of update to avoid disconnecting from other issuances
                 createdEndUser = await tx.endUser.update({
                   where: { id: existingEndUser.id },
                   data: {
@@ -95,7 +96,7 @@ export class IssuanceService {
                 });
               }
             }
-
+  
             // 3. Process inventory items for this end user
             if (endUser.inventory && endUser.inventory.length > 0) {
               for (const inventoryItem of endUser.inventory) {
@@ -105,41 +106,23 @@ export class IssuanceService {
                     "Inventory ID is required when creating an issuance with inventory items"
                   );
                 }
-
+  
                 // 3.2 Verify the inventory exists and get its details
                 const existingInventory = await tx.inventory.findUnique({
                   where: { id: inventoryItem.id },
                   include: { item: true },
                 });
-
+  
                 if (!existingInventory) {
                   throw new Error(
                     `Inventory with ID ${inventoryItem.id} not found`
                   );
                 }
-
-                // 3.3 Update the inventory and set receipt reference on the item
-                await tx.inventory.update({
-                  where: { id: inventoryItem.id },
-                  data: {
-                    issuance: {
-                      connect: { id: issuance.id },
-                    },
-                    endUser: {
-                      connect: { id: createdEndUser?.id },
-                    },
-                  },
-                });
-
-                // 3.4 Update the issuance quantity
-                await tx.issuance.update({
-                  where: { id: issuance.id },
-                  data: {
-                    quantity: String(inventoryItem.quantity) || "1",
-                  },
-                });
-
-                // 3.5 Create the issuance detail with proper relationships
+  
+                // 3.3 Connect inventory to issuance and end user - fixed to avoid affecting other relations
+                // Instead of updating the inventory directly, we'll create proper relations through issuanceDetail
+                
+                // 3.4 Create the issuance detail with proper relationships
                 const issuanceDetail = await tx.issuanceDetail.create({
                   data: {
                     quantity: String(inventoryItem.quantity) || "0",
@@ -150,12 +133,21 @@ export class IssuanceService {
                     issuance: {
                       connect: { id: issuance.id },
                     },
-                    endUser: {
-                      connect: { id: createdEndUser?.id },
-                    },
+                    endUser: createdEndUser ? {
+                      connect: { id: createdEndUser.id },
+                    } : undefined,
                   },
                 });
-
+  
+                // 3.5 Update the issuance quantity - just once per type
+                await tx.issuance.update({
+                  where: { id: issuance.id },
+                  data: {
+                    quantity: String(inventoryItem.quantity) || "1",
+                  },
+                });
+  
+                // 3.6 Create item if receipt reference is provided
                 if (inventoryItem.receiptRef) {
                   await tx.item.create({
                     data: {
@@ -177,10 +169,36 @@ export class IssuanceService {
             }
           }
         }
-
-        return issuance;
+  
+        // Return the created issuance with full details
+        return await tx.issuance.findUnique({
+          where: { id: issuance.id },
+          include: {
+            endUsers: true,
+            issuanceDetails: {
+              include: {
+                inventory: true,
+                endUser: true,
+              },
+            },
+            inventory: true,
+            user: {
+              select: {
+                firstname: true,
+                lastname: true,
+                username: true,
+                email: true,
+                roles: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        });
       });
-
+  
       return issuance;
     } catch (error: any) {
       throw new Error(`Failed to create issuance: ${error.message}`);
