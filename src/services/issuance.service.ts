@@ -606,20 +606,17 @@ export class IssuanceService {
                       },
                     });
 
-                    console.log("receiptData", item);
-
                     return {
                       ...inventoryData,
                       id: item.id,
                       unit: item.unit,
                       receiptRef: item.receiptRef,
-                      max_quantity: receiptData?.quantity || item.quantity,
-                      quantity: item.quantity,
-                      size: item.size,
-                      price: item.price,
+                      max_quantity: String(receiptData?.quantity || item.quantity),
+                      quantity: String(item.quantity),
+                      size: String(item.size),
+                      price: String(item.price),
                       name: item.item_name,
-                      amount: item.amount,
-                      
+                      amount: String(item.amount),
                     };
                   });
 
