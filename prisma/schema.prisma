@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model ActivityLog {
+  id            String        @id @unique @default(uuid())
+  date          String        @unique
+  activity      String        @default("")
+  performedById String
+  performedBy   User @relation(name: "performedByRelation", fields: [performedById], references: [id])
+  
+  @@map("activity_logs") 
+}
+
 model Inventory {
   id       String        @id @unique @default(uuid())
   name     String        @unique
@@ -156,6 +166,7 @@ model User {
   updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
   Issuance  Issuance[]
   Receipt   Receipt[]
+  performedActivityLogs ActivityLog[] @relation("performedByRelation")
 
   @@map("user")
 }
