@@ -8,6 +8,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { HTTPException } from "hono/http-exception";
 import { Context } from "vm";
 import receipt from "./receipt.route";
+import activityLog from "./activity-log.route";
 
 const errorHandler = async (err: Error, c: Context) => {
   console.error('Error:', err);
@@ -58,4 +59,5 @@ export const routes = (app: OpenAPIHono) => {
   app.route("/api/issuance", issuance);
   app.route("/api/end-user", endUser);
   app.route("/api/receipt", receipt);
+  app.route("/api/activity-log", activityLog)
 };
