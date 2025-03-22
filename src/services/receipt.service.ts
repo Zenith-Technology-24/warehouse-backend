@@ -38,6 +38,17 @@ export class ReceiptService {
   async create(data: CreateReceiptDto, user: User): Promise<Receipt> {
     try {
       const receipt = await prisma.$transaction(async (tx) => {
+        // Check first if the issuance directive already exists
+        const existingReceipt = await tx.receipt.findFirst({
+          where: {
+            issuanceDirective: data.issuanceDirective,
+          },
+        });
+        
+        if (existingReceipt) {
+          throw new Error("Receipt with this issuance directive already exists");
+        }
+
         const receipt = await tx.receipt.create({
           data: {
             source: data.source,
