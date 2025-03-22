@@ -101,10 +101,39 @@ export class InventoryService {
               },
             },
           },
-          issuance: true,
+          issuance: {
+            include: {
+              user: {
+                select: {
+                  firstname: true,
+                  lastname: true,
+                  roles: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              }
+            }
+          },
           issuanceDetails: {
             include: {
               endUser: true,
+              issuance: {
+                include: {
+                  user: {
+                    select: {
+                      firstname: true,
+                      lastname: true,
+                      roles: {
+                        select: {
+                          name: true,
+                        },
+                      },
+                    },
+                  }
+                },
+              },
             },
           },
         },
@@ -113,7 +142,13 @@ export class InventoryService {
       const inventory = {
         ...query,
         issuanceDetails: query?.issuance,
-        issuance: query?.issuanceDetails,
+        issuance: query?.issuanceDetails.map((detail) => {
+          return {
+            ...detail,
+            user: detail.issuance.user,
+            issuance: undefined
+          }
+        })
       };
   
       if (!inventory) return null;
@@ -231,6 +266,7 @@ export class InventoryService {
           // Pending issuances - mark as pending but don't reduce available yet
           sizeQuantities[size].pending += quantity;
           quantitySummary.pendingIssuanceQuantity += quantity;
+          quantitySummary.pendingQuantity += quantity;
         } else if (detail.status === "withdrawn") {
           // Withdrawn items are tracked for reporting
           sizeQuantities[size].withdrawn += quantity;
