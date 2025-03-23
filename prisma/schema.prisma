@@ -199,4 +199,9 @@ enum SizeType {
   none
   apparrel
   numerical
+  standard
+  length
+  fit
+  expanded
+  roman
 }

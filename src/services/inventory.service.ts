@@ -308,8 +308,15 @@ export class InventoryService {
         totalAvailable += finalAvailable;
       });
 
-      quantitySummary.availableQuantity = totalAvailable;
-      quantitySummary.totalQuantity = totalAvailable;
+      quantitySummary.availableQuantity =
+        totalAvailable -
+        quantitySummary.pendingQuantity -
+        quantitySummary.pendingQuantity -
+        quantitySummary.withdrawnQuantity;
+      quantitySummary.totalQuantity =
+        totalAvailable -
+        quantitySummary.pendingQuantity -
+        quantitySummary.withdrawnQuantity;
 
       const sizeDetails: Array<{
         size: string;
