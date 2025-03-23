@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { issuances, Prisma, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
+import { InventoryService } from "./inventory.service";
 
 interface InventoryPayload {
   id?: string;
@@ -41,6 +42,8 @@ export interface IssuanceResponseType {
   currentPage: number;
   totalPages: number;
 }
+
+const inventoryService = new InventoryService();
 
 export class IssuanceService {
   async create(data: CreateIssuanceDto, user: User): Promise<issuances> {
@@ -154,10 +157,17 @@ export class IssuanceService {
 
                 // 3.6 Create item if receipt reference is provided
                 if (inventoryItem.receiptRef) {
-                  if(Number(inventoryItem.quantity) > Number(existingInventory.quantity)){
-                    throw new Error(
-                      `Quantity ${inventoryItem.quantity} exceeds available inventory ${existingInventory.quantity}`
-                    );
+                  const currentInventory =
+                    await inventoryService.getInventoryById(inventoryItem.id);
+                  if (currentInventory) {
+                    if (
+                      Number(inventoryItem.quantity) >
+                      Number(currentInventory.quantitySummary.totalQuantity)
+                    ) {
+                      throw new Error(
+                        `Quantity ${inventoryItem.quantity} exeeds available quantity ${currentInventory.quantitySummary.totalQuantity} of ${currentInventory.name}`
+                      );
+                    }
                   }
 
                   await tx.item.create({
@@ -617,7 +627,9 @@ export class IssuanceService {
                       id: item.id,
                       unit: item.unit,
                       receiptRef: item.receiptRef,
-                      max_quantity: String(receiptData?.quantity || item.quantity),
+                      max_quantity: String(
+                        receiptData?.quantity || item.quantity
+                      ),
                       quantity: String(item.quantity),
                       size: String(item.size),
                       price: String(item.price),
@@ -691,16 +703,16 @@ export class IssuanceService {
       },
       select: {
         issuanceId: true,
-      }
+      },
     });
 
     const issuances = await prisma.issuanceDetail.findMany({
-      where: { issuanceId: issuance.issuanceId }
-    })
+      where: { issuanceId: issuance.issuanceId },
+    });
 
     const pendingCount = issuances.filter((item) => item.status === "pending");
 
-    if(pendingCount.length === 0) {
+    if (pendingCount.length === 0) {
       await prisma.issuance.update({
         where: { id: issuance.issuanceId },
         data: {
