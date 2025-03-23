@@ -22,6 +22,20 @@ export const getReceipts = async (c: Context) => {
   );
 };
 
+export const exportReceipt = async (c: Context) => {
+  const requestBody = await c.req.json();
+  
+  const { start_date, end_date, search, status } = requestBody;
+  return c.json(
+    await receiptService.export(
+      start_date ?? "", 
+      end_date ?? "", 
+      status,
+      search ?? ""
+    ), 200
+  );
+}
+
 
 export const createReceipts = async (c: Context & { user: User }) => {
   const data = await c.req.json();

@@ -2,6 +2,7 @@ import {
   archiveInventory,
   createInventory,
   createItemType,
+  exportInventory,
   getInventories,
   getInventoryById,
   getItemTypes,
@@ -22,6 +23,7 @@ inventory.get('/:id', getInventoryById as never);
 
 inventory.post('/type', createItemType as never);
 inventory.post('/', createInventory as never);
+inventory.post('/export', exportInventory as never)
 
 
 inventory.put('/archive/:id', archiveInventory);

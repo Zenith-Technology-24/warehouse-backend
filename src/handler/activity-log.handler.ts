@@ -14,3 +14,14 @@ export const getActivityLogs = async (c: Context & { user: Partial<User>; token:
     );
     return c.json(logs, 200);  
 };
+
+export const exportActivityLogs = async (c: Context) => {
+    const requestBody = await c.req.json();
+    
+    const { start_date, end_date, search } = requestBody;
+    return c.json(await activityLogService.export(
+      start_date ?? "",
+      end_date ?? "",
+      search ?? ""
+    ), 200);
+  }
