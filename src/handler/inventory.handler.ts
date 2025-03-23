@@ -21,6 +21,19 @@ export const getInventories = async (c: Context) => {
   );
 };
 
+export const exportInventory = async (c: Context) => {
+    const requestBody = await c.req.json();
+    const { start_date, end_date, search, status } = requestBody;
+    return c.json(
+      await inventoryService.export(
+        start_date ?? "", 
+        end_date ?? "", 
+        status,
+        search ?? ""
+      ), 200
+    );
+}
+
 export const createInventory = async (c: Context) => {
   const data = await c.req.json();
   return c.json(await inventoryService.create(data), 201);

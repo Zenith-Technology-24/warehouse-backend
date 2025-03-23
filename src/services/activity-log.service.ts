@@ -1,7 +1,5 @@
 import prisma from "@/generic/prisma";
 import { ActivityLog, User } from "@prisma/client";
-import { Context } from "hono";
-import { start } from "repl";
 
 interface CreateActivityLogDto {
     activity: string;
@@ -111,4 +109,52 @@ export class ActivityLogService {
             throw error;
         }
     }
+
+    async export (
+        start_date: string,
+        end_date: string,
+        search?: string
+    ) {
+        try {
+
+            const whereCondition = {
+                date: {
+                    gte: start_date,
+                    lte: end_date
+                },
+                ...(search
+                    ? {
+                          OR: [
+                              { activity: { contains: search, mode: "insensitive" } },
+                              { performedBy: { username: { contains: search, mode: "insensitive" } } }
+                          ]
+                      }
+                    : {})
+            };
+
+            const activityLogs = await prisma.activityLog.findMany({
+                where: whereCondition as any,
+                orderBy: {
+                    date: "desc"
+                },
+                select: {
+                    id: true,
+                    activity: true,
+                    date: true,
+                    performedBy: {
+                        select: {
+                            username: true,
+                            roles: true
+                        }
+                    }
+                }
+            }) 
+
+            return activityLogs
+        } catch (error) {
+            console.error("error fetching activity logs", error);
+            throw error;
+        }
+    }
+    
 }

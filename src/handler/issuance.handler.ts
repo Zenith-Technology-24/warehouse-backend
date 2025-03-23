@@ -23,6 +23,19 @@ export const getIssuances = async (c: Context) => {
   );
 };
 
+export const exportIssuance = async (c: Context) => {
+  const requestBody = await c.req.json();
+  const { start_date, end_date, search, status } = requestBody;
+  return c.json(
+    await issuanceService.export(
+      start_date ?? "", 
+      end_date ?? "", 
+      status,
+      search ?? ""
+    ), 200
+  );
+}
+
 export const fetchReceiptsForIssuance = async (c: Context) => {
   return c.json(await issuanceService.getReceipts(), 200);
 };
