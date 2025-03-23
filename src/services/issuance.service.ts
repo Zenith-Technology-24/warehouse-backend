@@ -154,6 +154,12 @@ export class IssuanceService {
 
                 // 3.6 Create item if receipt reference is provided
                 if (inventoryItem.receiptRef) {
+                  if(Number(inventoryItem.quantity) > Number(existingInventory.quantity)){
+                    throw new Error(
+                      `Quantity ${inventoryItem.quantity} exceeds available inventory ${existingInventory.quantity}`
+                    );
+                  }
+
                   await tx.item.create({
                     data: {
                       item_name: inventoryItem?.name || "NO NAME",
