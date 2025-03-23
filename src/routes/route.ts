@@ -21,11 +21,14 @@ const errorHandler = async (err: Error, c: Context) => {
   }
 
   if (err instanceof PrismaClientKnownRequestError) {
+    const field = Array.isArray(err.meta?.target) 
+          ? (err.meta?.target as string[]).join(', ')
+          : err.meta?.target as string;
     switch (err.code) {
       case 'P2002':
         return c.json({
-          message: 'Unique constraint violation',
-          field: err.meta?.target,
+          message: `A record with this ${field} already exists`,
+          field: field,
           code: err.code
         }, 400);
       case 'P2025':
