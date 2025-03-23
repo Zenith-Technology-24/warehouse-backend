@@ -309,8 +309,7 @@ export class InventoryService {
       });
 
       quantitySummary.availableQuantity = totalAvailable;
-      quantitySummary.totalQuantity =
-        totalAvailable + quantitySummary.pendingQuantity;
+      quantitySummary.totalQuantity = totalAvailable;
 
       const sizeDetails: Array<{
         size: string;
