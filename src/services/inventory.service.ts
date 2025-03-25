@@ -382,6 +382,21 @@ export class InventoryService {
         }),
       };
 
+      //
+      const issuancePromises = await Promise.all(
+        inventory.issuance.map(async (detail) => {
+          const issuance = await prisma.issuance.findUnique({where: {
+            id: detail.issuanceId
+          }})
+          return {
+            ...detail,
+            item: detail.inventory,
+            inventory: undefined,
+            ...issuance
+          };
+        })
+      );
+
       return {
         ...inventory,
         quantitySummary: {
@@ -392,13 +407,7 @@ export class InventoryService {
         },
         sizeDetails: groupedSizeDetails,
         detailedQuantities: sizeQuantities,
-        issuance: inventory.issuance.map((detail) => {
-          return {
-            ...detail,
-            item: detail.inventory,
-            inventory: undefined,
-          }
-        }),
+        issuance: issuancePromises,
         items: items.filter(item => {
           return item.issuanceDetailId == null
         }),
