@@ -160,12 +160,12 @@ export class IssuanceService {
                   const currentInventory =
                     await inventoryService.getInventoryById(inventoryItem.id);
                   if (currentInventory) {
-                    if (
-                      Number(inventoryItem.quantity) >
-                      Number(currentInventory.quantitySummary.totalQuantity)
-                    ) {
+                    const sizeQuantities = currentInventory.detailedQuantities;
+                    const requestedSize = inventoryItem.size || "No Size";
+                    const sizeData = sizeQuantities[requestedSize].available;
+                    if (Number(inventoryItem.quantity) > Number(sizeData)) {
                       throw new Error(
-                        `Quantity ${inventoryItem.quantity} exeeds available quantity ${currentInventory.quantitySummary.totalQuantity} of ${currentInventory.name}`
+                        `Quantity ${inventoryItem.quantity} exceeds available quantity ${currentInventory.quantitySummary.totalQuantity} of ${currentInventory.name} for size ${inventoryItem.size}`
                       );
                     }
                   }
@@ -547,7 +547,7 @@ export class IssuanceService {
     start_date: string,
     end_date: string,
     status?: string,
-    search?: string,
+    search?: string
   ) {
     try {
       const where = {
@@ -555,67 +555,71 @@ export class IssuanceService {
           gte: new Date(start_date),
           lte: new Date(end_date),
         },
-        ...(search ? {
-          OR: [
-            { issuanceDirective: { contains: search, mode: "insensitive" } },
-          ],
-        } : {})
-      }
+        ...(search
+          ? {
+              OR: [
+                {
+                  issuanceDirective: { contains: search, mode: "insensitive" },
+                },
+              ],
+            }
+          : {}),
+      };
 
       const statusFilter = status === "all" ? undefined : status;
 
       const issuances = await prisma.issuance.findMany({
-          where: { ...where, status: statusFilter } as never,
-          include: {
-            endUsers: {
-              include: {
-                inventories: {
-                  where: {
-                    issuance: {
-                      id: {
-                        not: undefined,
-                      },
+        where: { ...where, status: statusFilter } as never,
+        include: {
+          endUsers: {
+            include: {
+              inventories: {
+                where: {
+                  issuance: {
+                    id: {
+                      not: undefined,
                     },
                   },
-                  select: {
-                    quantity: true,
-                    status: true,
-                    issuanceId: true,
-                  },
                 },
-                inventory: {
-                  select: {
-                    item: true,
-                  },
+                select: {
+                  quantity: true,
+                  status: true,
+                  issuanceId: true,
                 },
               },
-            },
-            issuanceDetails: {
-              include: {
-                inventory: true,
-                endUser: true,
-              },
-            },
-            user: {
-              select: {
-                firstname: true,
-                lastname: true,
-                username: true,
-                email: true,
-                roles: {
-                  select: {
-                    name: true,
-                  },
+              inventory: {
+                select: {
+                  item: true,
                 },
               },
             },
           },
-          orderBy: {
-            createdAt: "desc",
+          issuanceDetails: {
+            include: {
+              inventory: true,
+              endUser: true,
+            },
           },
-        })
+          user: {
+            select: {
+              firstname: true,
+              lastname: true,
+              username: true,
+              email: true,
+              roles: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
-      return issuances
+      return issuances;
     } catch (error: any) {
       throw new Error(`Failed to get issuances: ${error.message}`);
     }
