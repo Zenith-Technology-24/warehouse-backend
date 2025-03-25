@@ -704,6 +704,16 @@ export class IssuanceService {
                       },
                     });
 
+                    // check if the item.size is a uuid
+                    const isUuid = (str: string) =>
+                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+                        str
+                      );
+                    const itemSize = isUuid(item.size || "") ? await prisma.item.findUnique({
+                      where: { id: item.size || "" },
+                      select: { size: true, id: true },
+                    }) : null;
+
                     return {
                       ...inventoryData,
                       id: item.id,
@@ -713,7 +723,8 @@ export class IssuanceService {
                         receiptData?.quantity || item.quantity
                       ),
                       quantity: String(item.quantity),
-                      size: String(item.size),
+                      size: itemSize ? itemSize.size : item.size,
+                      sizeId: itemSize ? itemSize.id : null,
                       price: String(item.price),
                       name: item.item_name,
                       amount: String(item.amount),
