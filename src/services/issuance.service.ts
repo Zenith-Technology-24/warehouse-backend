@@ -822,4 +822,24 @@ export class IssuanceService {
       },
     });
   }
+
+  async archiveIssuance(id: string) {
+    return await prisma.issuance.update({
+      where: { id },
+      data: {
+        status: "archived",
+        issuanceStatus: "archived",
+      },
+    });
+  }
+
+  async unArchiveIssuance(id: string) {
+    return await prisma.issuance.update({
+      where: { id },
+      data: {
+        status: "pending",
+        issuanceStatus: "pending",
+      },
+    });
+  }
 }
