@@ -165,7 +165,7 @@ export class IssuanceService {
                     const sizeData = sizeQuantities[requestedSize].available;
                     if (Number(inventoryItem.quantity) > Number(sizeData)) {
                       throw new Error(
-                        `Quantity ${inventoryItem.quantity} exceeds available quantity ${currentInventory.quantitySummary.totalQuantity} of ${currentInventory.name} for size ${inventoryItem.size}`
+                        `Quantity ${inventoryItem.quantity} exceeds available quantity ${sizeQuantities[requestedSize].available} of ${currentInventory.name} for size ${inventoryItem.size}`
                       );
                     }
                   }
