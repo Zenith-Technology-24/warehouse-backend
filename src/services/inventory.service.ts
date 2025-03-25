@@ -541,6 +541,137 @@ export class InventoryService {
     }
   }
 
+  async export (
+      start_date: string,
+      end_date: string,
+      status?: string,
+      search?: string
+  ) {
+      try {
+          const where = {
+            createdAt: {
+              gte: new Date(start_date),
+              lte: new Date(end_date)
+            },
+            ...(search ? {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { unit: { contains: search, mode: "insensitive" } },
+              ],
+            } : {})
+          }
+
+      const inventories = await prisma.inventory.findMany({
+        where: { ...where, status: status as ProductStatus | undefined } as any,
+        include: {
+          item: true,
+          receipts: {
+            include: {
+              item: true,
+            },
+          },
+          issuance: {
+            select: {
+              id: true,
+              status: true,
+              quantity: true,
+              issuanceDetails: true,
+            },
+          },
+          issuanceDetails: {
+            select: {
+              quantity: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      const processedInventories = inventories.map((inventory) => {
+        let totalQuantity = 0;
+        let grandTotalAmount = 0;
+
+        if (inventory.item) {
+          const quantity = parseInt(inventory.item.quantity || "0", 10);
+          const price = parseFloat(inventory.item.price || "0");
+
+          totalQuantity += quantity;
+          grandTotalAmount += quantity * price;
+        }
+
+        inventory.receipts.forEach((receipt) => {
+          receipt.item.forEach((item) => {
+            if (item.inventoryId === inventory.id) {
+              const quantity = parseInt(item.quantity || "0", 10);
+              const price = parseFloat(item.price || "0");
+              if (receipt.status !== "pending") {
+                totalQuantity += quantity;
+                grandTotalAmount += quantity * price;
+              }
+            }
+          });
+        });
+
+        inventory.issuanceDetails.forEach((detail) => {
+          if (detail.status === "withdrawn") {
+            const issuedQuantity = parseInt(detail.quantity || "0", 10);
+            const price = inventory.item
+              ? parseFloat(inventory.item.price || "0")
+              : 0;
+
+            totalQuantity -= issuedQuantity;
+            grandTotalAmount -= issuedQuantity * price;
+          }
+        });
+
+        if (inventory.issuance && inventory.issuance.status === "withdrawn") {
+          const issuedQuantity = parseInt(
+            inventory.issuance.quantity || "0",
+            10
+          );
+          const price = inventory.item
+            ? parseFloat(inventory.item.price || "0")
+            : 0;
+
+          totalQuantity -= issuedQuantity;
+          grandTotalAmount -= issuedQuantity * price;
+        }
+
+        totalQuantity = Math.max(0, totalQuantity);
+        grandTotalAmount = Math.max(0, grandTotalAmount);
+
+        let stockLevel = "Out of Stock";
+        if (totalQuantity > 0) {
+          if (totalQuantity <= 100) {
+            stockLevel = "Low Stock";
+          } else if (totalQuantity <= 499) {
+            stockLevel = "Mid Stock";
+          } else {
+            stockLevel = "High Stock";
+          }
+        }
+
+        return {
+          ...inventory,
+          totalQuantity,
+          stockLevel,
+          grandTotalAmount: new Intl.NumberFormat("en-EN", {
+            maximumFractionDigits: 2,
+          }).format(grandTotalAmount),
+        };
+      });
+
+      return processedInventories
+
+      } catch (error) {
+          console.error("error fetching activity logs", error);
+          throw error;
+      }
+  }
+
   async issuanceInventories() {
     return await prisma.inventory.findMany({});
   }

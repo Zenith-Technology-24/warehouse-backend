@@ -488,6 +488,112 @@ export class ReceiptService {
     }
   }
 
+  async export(
+    start_date: string,
+    end_date: string,
+    status?: string,
+    search?: string
+  ) {
+    try {
+
+      const where = {
+        receiptDate: {
+          gte: new Date(start_date),
+          lte: new Date(end_date),
+        },
+        ...(search ? {
+          OR: [
+            { issuanceDirective: { contains: search, mode: "insensitive" } },
+            { source: { contains: search, mode: "insensitive" } },
+          ],
+        } : {})
+      }
+
+      const receipts = await prisma.receipt.findMany({
+          where: { ...where, status } as any,
+          include: {
+            inventory: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                sizeType: true,
+                item: {
+                  select: {
+                    location: true,
+                    size: true,
+                    quantity: true,
+                    expiryDate: true,
+                    item_name: true,
+                    unit: true,
+                    price: true,
+                    amount: true,
+                    inventoryId: true,
+                  },
+                },
+              },
+            },
+            user: {
+              select: {
+                lastname: true,
+                firstname: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        })
+
+      // Format monetary values and calculate total amount for each receipt
+      const formattedReceipts = receipts.map((receipt) => {
+        // Format inventory items' monetary values
+        const formattedInventories = receipt.inventory.map((inv) => {
+          // Format the item price and amount if they exist
+          if (inv.item) {
+            const formattedItem = {
+              ...inv.item,
+              price: inv.item.price
+                ? new Intl.NumberFormat("en-EN", {
+                    maximumFractionDigits: 2,
+                  }).format(parseFloat(inv.item.price))
+                : "0.00",
+              amount: inv.item.amount
+                ? new Intl.NumberFormat("en-EN", {
+                    maximumFractionDigits: 2,
+                  }).format(parseFloat(inv.item.amount))
+                : "0.00",
+            };
+
+            return { ...inv, item: formattedItem };
+          }
+          return inv;
+        });
+
+        // Calculate total amount for this receipt
+        const totalAmount = receipt.inventory.reduce((sum, inv) => {
+          if (inv.item?.amount) {
+            return sum + parseFloat(inv.item.amount);
+          }
+          return sum;
+        }, 0);
+
+        return {
+          ...receipt,
+          inventory: formattedInventories,
+          totalAmount: new Intl.NumberFormat("en-EN", {
+            maximumFractionDigits: 2,
+          }).format(totalAmount),
+        };
+      });
+
+      return formattedReceipts
+    } catch (error: any) {
+      throw new Error(`Failed to get receipts: ${error.message}`);
+    }
+  }
+
   // Archive and Unarchive methods
   async archive(id: string): Promise<Receipt> {
     try {

@@ -543,6 +543,84 @@ export class IssuanceService {
     }
   }
 
+  async export(
+    start_date: string,
+    end_date: string,
+    status?: string,
+    search?: string,
+  ) {
+    try {
+      const where = {
+        issuanceDate: {
+          gte: new Date(start_date),
+          lte: new Date(end_date),
+        },
+        ...(search ? {
+          OR: [
+            { issuanceDirective: { contains: search, mode: "insensitive" } },
+          ],
+        } : {})
+      }
+
+      const statusFilter = status === "all" ? undefined : status;
+
+      const issuances = await prisma.issuance.findMany({
+          where: { ...where, status: statusFilter } as never,
+          include: {
+            endUsers: {
+              include: {
+                inventories: {
+                  where: {
+                    issuance: {
+                      id: {
+                        not: undefined,
+                      },
+                    },
+                  },
+                  select: {
+                    quantity: true,
+                    status: true,
+                    issuanceId: true,
+                  },
+                },
+                inventory: {
+                  select: {
+                    item: true,
+                  },
+                },
+              },
+            },
+            issuanceDetails: {
+              include: {
+                inventory: true,
+                endUser: true,
+              },
+            },
+            user: {
+              select: {
+                firstname: true,
+                lastname: true,
+                username: true,
+                email: true,
+                roles: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        })
+
+      return issuances
+    } catch (error: any) {
+      throw new Error(`Failed to get issuances: ${error.message}`);
+    }
+  }
+
   async getIssuanceById(id: string): Promise<issuances> {
     try {
       const issuance = await prisma.issuance.findUnique({
