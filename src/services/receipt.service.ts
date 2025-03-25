@@ -620,4 +620,12 @@ export class ReceiptService {
       throw new Error(`Failed to unarchive receipt: ${error.message}`);
     }
   }
+
+  async deleteReceipt(id: string): Promise<Receipt> {
+    return await prisma.receipt.delete({
+      where: {
+        id
+      }
+    });
+  }
 }
