@@ -1,5 +1,6 @@
 import { Inventory, ProductStatus, SizeType } from "@prisma/client";
 import prisma from "@/generic/prisma";
+import receipt from "@/routes/receipt.route";
 
 interface CreateInventoryDto {
   name: string;
@@ -397,7 +398,11 @@ export class InventoryService {
             item: detail.inventory,
             inventory: undefined,
           }
-        })
+        }),
+        items: items.filter(item => {
+          return item.issuanceDetailId == null
+        }),
+        receipt: undefined
       };
     } catch (error: any) {
       throw new Error(`Failed to get inventory by ID: ${error.message}`);
