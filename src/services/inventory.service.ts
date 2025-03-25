@@ -326,22 +326,14 @@ export class InventoryService {
       }> = [];
 
       function determineStockLevel(quantity: number): string {
+        if (quantity <= 0) return "Out of Stock";
         if (quantity <= 30) return "Low Stock";
         if (quantity <= 98) return "Mid Stock";
         return "High Stock";
       }
 
+      // Generate size details for pending and available separately
       Object.entries(sizeQuantities).forEach(([size, quantities]) => {
-        if (quantities.pending > 0) {
-          const stockLevel = determineStockLevel(quantities.pending);
-          sizeDetails.push({
-            size,
-            pairs: String(quantities.pending),
-            status: stockLevel,
-            type: "pending",
-          });
-        }
-
         if (quantities.pending > 0) {
           const stockLevel = determineStockLevel(quantities.pending);
           sizeDetails.push({
@@ -371,7 +363,15 @@ export class InventoryService {
           .filter((detail) => detail.type === "available")
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          const totalPairs = quantities.available + quantities.pending;
+          // Apply the exact formula: pairs = total - pending - pending - withdrawn
+          // where total is the available quantity
+          const totalPairs = Math.max(
+            0,
+            quantities.available -
+              quantities.pending -
+              quantities.pending -
+              quantities.withdrawn
+          );
           const stockLevel = determineStockLevel(totalPairs);
           return {
             size,
