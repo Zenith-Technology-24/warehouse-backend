@@ -389,14 +389,15 @@ export class InventoryService {
             maximumFractionDigits: 2,
           }).format(quantitySummary.grandTotalAmount),
         },
-        items,
         sizeDetails: groupedSizeDetails,
         detailedQuantities: sizeQuantities,
-
-        debug: {
-          withdrawnTotal: quantitySummary.withdrawnQuantity,
-          pendingIssuanceTotal: quantitySummary.pendingIssuanceQuantity,
-        },
+        issuance: inventory.issuance.map((detail) => {
+          return {
+            ...detail,
+            item: detail.inventory,
+            inventory: undefined,
+          }
+        })
       };
     } catch (error: any) {
       throw new Error(`Failed to get inventory by ID: ${error.message}`);
