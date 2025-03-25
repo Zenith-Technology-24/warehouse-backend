@@ -412,8 +412,13 @@ export class InventoryService {
             where: { issuanceDetailId: detail.id || "" },
           });
 
+          const issuanceData = await prisma.issuance.findUnique({
+            where: { id: detail.issuanceId || "" },
+          });
+
           return {
             ...detail,
+            issuanceDirective: issuanceData?.issuanceDirective,
             user: detail.issuance.user,
             issuance: undefined,
             ...itemData
