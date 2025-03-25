@@ -411,7 +411,7 @@ export class InventoryService {
   ): Promise<InventoryResponseType> {
     try {
       const skip = (page - 1) * pageSize;
-
+  
       const where = search
         ? {
             OR: [
@@ -420,11 +420,11 @@ export class InventoryService {
             ],
           }
         : {};
-
+  
       const totalCount = await prisma.inventory.count({
         where: { ...where, status: status as ProductStatus | undefined } as any,
       });
-
+  
       const inventories = await prisma.inventory.findMany({
         where: { ...where, status: status as ProductStatus | undefined } as any,
         include: {
@@ -455,44 +455,59 @@ export class InventoryService {
         skip,
         take: pageSize,
       });
-
+  
       const processedInventories = inventories.map((inventory) => {
         let totalQuantity = 0;
+        let availableQuantity = 0;
+        let pendingQuantity = 0;
+        let pendingIssuanceQuantity = 0;
+        let withdrawnQuantity = 0;
         let grandTotalAmount = 0;
-
+  
+        // Handle initial inventory quantity
         if (inventory.item) {
           const quantity = parseInt(inventory.item.quantity || "0", 10);
           const price = parseFloat(inventory.item.price || "0");
-
+  
           totalQuantity += quantity;
+          availableQuantity += quantity;
           grandTotalAmount += quantity * price;
         }
-
+  
+        // Process receipts
         inventory.receipts.forEach((receipt) => {
           receipt.item.forEach((item) => {
             if (item.inventoryId === inventory.id) {
               const quantity = parseInt(item.quantity || "0", 10);
               const price = parseFloat(item.price || "0");
-              if (receipt.status !== "pending") {
+              if (receipt.status === "pending") {
+                pendingQuantity += quantity;
+              } else {
                 totalQuantity += quantity;
+                availableQuantity += quantity;
                 grandTotalAmount += quantity * price;
               }
             }
           });
         });
-
+  
+        // Process issuance details
         inventory.issuanceDetails.forEach((detail) => {
-          if (detail.status === "withdrawn") {
-            const issuedQuantity = parseInt(detail.quantity || "0", 10);
-            const price = inventory.item
-              ? parseFloat(inventory.item.price || "0")
-              : 0;
-
-            totalQuantity -= issuedQuantity;
+          const issuedQuantity = parseInt(detail.quantity || "0", 10);
+          const price = inventory.item
+            ? parseFloat(inventory.item.price || "0")
+            : 0;
+  
+          if (detail.status === "pending") {
+            pendingIssuanceQuantity += issuedQuantity;
+          } else if (detail.status === "withdrawn") {
+            withdrawnQuantity += issuedQuantity;
+            availableQuantity -= issuedQuantity;
             grandTotalAmount -= issuedQuantity * price;
           }
         });
-
+  
+        // Process direct issuances
         if (inventory.issuance && inventory.issuance.status === "withdrawn") {
           const issuedQuantity = parseInt(
             inventory.issuance.quantity || "0",
@@ -501,14 +516,23 @@ export class InventoryService {
           const price = inventory.item
             ? parseFloat(inventory.item.price || "0")
             : 0;
-
-          totalQuantity -= issuedQuantity;
+  
+          withdrawnQuantity += issuedQuantity;
+          availableQuantity -= issuedQuantity;
           grandTotalAmount -= issuedQuantity * price;
         }
-
-        totalQuantity = Math.max(0, totalQuantity);
+  
+        // Ensure values don't go negative
+        availableQuantity = Math.max(0, availableQuantity);
         grandTotalAmount = Math.max(0, grandTotalAmount);
-
+  
+        // Calculate the original total quantity (before withdrawals)
+        const originalTotalQuantity = totalQuantity;
+  
+        // Calculate current total (applying the same formula as in getInventoryById)
+        totalQuantity = Math.max(0, totalQuantity - withdrawnQuantity);
+  
+        // Determine stock level
         let stockLevel = "Out of Stock";
         if (totalQuantity > 0) {
           if (totalQuantity <= 100) {
@@ -519,17 +543,22 @@ export class InventoryService {
             stockLevel = "High Stock";
           }
         }
-
+  
+        // Create availability ratio
+        const availabilityRatio = `${availableQuantity}/${originalTotalQuantity}`;
+  
         return {
           ...inventory,
           totalQuantity,
+          availableQuantity,
+          quantity: availabilityRatio,
           stockLevel,
           grandTotalAmount: new Intl.NumberFormat("en-EN", {
             maximumFractionDigits: 2,
           }).format(grandTotalAmount),
         };
       });
-
+  
       return {
         data: processedInventories,
         total: totalCount,
