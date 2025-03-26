@@ -810,13 +810,15 @@ export class InventoryService {
     });
   }
 
-  async updateItemName(id: string, data: { name: string }) {
-    return await prisma.item.update({
+  async updateInventory(id: string, data: { name: string, sizeType: SizeType, unit: string }) {
+    return await prisma.inventory.update({
       where: {
         id,
       },
       data: {
-        item_name: data.name,
+        name: data.name,
+        sizeType: data.sizeType,
+        unit: data.unit,
       },
     });
   }
