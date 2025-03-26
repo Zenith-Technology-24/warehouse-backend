@@ -2,6 +2,7 @@ import {
   archiveInventory,
   createInventory,
   createItemType,
+  deleteItem,
   exportInventory,
   getInventories,
   getInventoryById,
@@ -18,8 +19,12 @@ inventory.use(authMiddleware as never);
 inventory.use(activityLogMiddleware as never);
 inventory.post('/type', createItemType);
 inventory.get('/type', getItemTypes)
+
 inventory.get('/', getInventories as never);
+inventory.get('/item/delete/:id', deleteItem as never);
 inventory.get('/:id', getInventoryById as never);
+
+
 
 inventory.post('/type', createItemType as never);
 inventory.post('/', createInventory as never);
