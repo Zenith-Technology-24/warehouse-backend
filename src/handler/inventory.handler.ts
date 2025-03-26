@@ -65,3 +65,9 @@ export const deleteItem = async (c: Context) => {
   const id = c.req.param("id");
   return c.json(await inventoryService.deleteItem(id), 200);
 }
+
+export const updateItemName = async (c: Context) => {
+  const id = c.req.param("id");
+  const data = await c.req.json();
+  return c.json(await inventoryService.updateItemName(id, data), 200);
+};

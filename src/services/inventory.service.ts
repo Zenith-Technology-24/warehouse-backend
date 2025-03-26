@@ -809,4 +809,15 @@ export class InventoryService {
       },
     });
   }
+
+  async updateItemName(id: string, data: { name: string }) {
+    return await prisma.item.update({
+      where: {
+        id,
+      },
+      data: {
+        item_name: data.name,
+      },
+    });
+  }
 }
