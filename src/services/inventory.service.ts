@@ -803,7 +803,7 @@ export class InventoryService {
   }
 
   async deleteItem(id: string) {
-    return await prisma.item.delete({
+    return await prisma.inventory.delete({
       where: {
         id,
       },
