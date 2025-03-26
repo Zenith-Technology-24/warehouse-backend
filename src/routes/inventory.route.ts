@@ -8,6 +8,7 @@ import {
   getInventoryById,
   getItemTypes,
   unarchiveInventory,
+  updateItemName,
 } from "@/handler/inventory.handler";
 import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
 import { authMiddleware } from "@/middleware/auth.middleware";
@@ -32,7 +33,7 @@ inventory.post('/export', exportInventory as never)
 
 
 inventory.put('/archive/:id', archiveInventory);
-inventory.put('/item/update-name/:id', deleteItem as never);
+inventory.put('/item/update-name/:id', updateItemName as never);
 inventory.put('/unarchive/:id', unarchiveInventory);
 
 export default inventory;
