@@ -194,81 +194,92 @@ export class InventoryService {
       };
 
       const sizeQuantities: Record<
-        string,
-        {
-          pending: number;
-          available: number;
-          withdrawn: number;
-        }
-      > = {};
+      string,
+      {
+        pending: number;
+        available: number;
+        withdrawn: number;
+        total: number;
+      }
+    > = {};
 
-      if (inventory.item) {
-        const quantity = parseInt(inventory.item.quantity || "0", 10);
-        const size = inventory.item.size || "No Size";
-        const price = parseFloat(inventory.item.price || "0");
-        const amount = quantity * price;
+    if (inventory.item) {
+      const quantity = parseInt(inventory.item.quantity || "0", 10);
+      const size = inventory.item.size || "No Size";
+      const price = parseFloat(inventory.item.price || "0");
+      const amount = quantity * price;
 
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-          };
-        }
+      if (!sizeQuantities[size]) {
+        sizeQuantities[size] = {
+          pending: 0,
+          available: 0,
+          withdrawn: 0,
+          total: 0,
+        };
+      }
 
+      sizeQuantities[size].available += quantity;
+      sizeQuantities[size].total += quantity; // Add to total quantities
+      quantitySummary.grandTotalAmount += amount;
+    }
+
+    items.forEach((item) => {
+      const quantity = parseInt(item.quantity || "0", 10);
+      const size = item.size || "No Size";
+      const price = parseFloat(item.price || "0");
+      const amount = quantity * price;
+
+      if (!sizeQuantities[size]) {
+        sizeQuantities[size] = {
+          pending: 0,
+          available: 0,
+          withdrawn: 0,
+          total: 0,
+        };
+      }
+
+      if (item.receipt?.status === "pending") {
+        quantitySummary.pendingQuantity += quantity;
+        sizeQuantities[size].pending += quantity;
+      } else {
         sizeQuantities[size].available += quantity;
         quantitySummary.grandTotalAmount += amount;
       }
+      
+      // Add to total quantities regardless of status
+      sizeQuantities[size].total += quantity;
+    });
 
-      items.forEach((item) => {
-        const quantity = parseInt(item.quantity || "0", 10);
-        const size = item.size || "No Size";
-        const price = parseFloat(item.price || "0");
-        const amount = quantity * price;
+    inventory.issuance?.forEach((detail) => {
+      const quantity = parseInt(detail.quantity || "0", 10);
 
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-          };
-        }
+      const itemForSize =
+        items.find((item) => item.receipt?.status === "active") ||
+        inventory.item;
 
-        if (item.receipt?.status === "pending") {
-          quantitySummary.pendingQuantity += quantity;
-          sizeQuantities[size].pending += quantity;
-        } else {
-          sizeQuantities[size].available += quantity;
-          quantitySummary.grandTotalAmount += amount;
-        }
-      });
+      const size = itemForSize?.size || "No Size";
 
-      inventory.issuance?.forEach((detail) => {
-        const quantity = parseInt(detail.quantity || "0", 10);
+      if (!sizeQuantities[size]) {
+        sizeQuantities[size] = {
+          pending: 0,
+          available: 0,
+          withdrawn: 0,
+          total: 0,
+        };
+      }
 
-        const itemForSize =
-          items.find((item) => item.receipt?.status === "active") ||
-          inventory.item;
-
-        const size = itemForSize?.size || "No Size";
-
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-          };
-        }
-
-        if (detail.status === "pending") {
-          sizeQuantities[size].pending += quantity;
-          quantitySummary.pendingIssuanceQuantity += quantity;
-          quantitySummary.pendingQuantity += quantity;
-        } else if (detail.status === "withdrawn") {
-          sizeQuantities[size].withdrawn += quantity;
-          quantitySummary.withdrawnQuantity += quantity;
-        }
-      });
+      if (detail.status === "pending") {
+        sizeQuantities[size].pending += quantity;
+        quantitySummary.pendingIssuanceQuantity += quantity;
+        quantitySummary.pendingQuantity += quantity;
+      } else if (detail.status === "withdrawn") {
+        sizeQuantities[size].withdrawn += quantity;
+        quantitySummary.withdrawnQuantity += quantity;
+      }
+      
+      // Add to size total regardless of status
+      sizeQuantities[size].total += quantity;
+    });
 
       if (
         inventory.issuanceDetails &&
@@ -290,6 +301,7 @@ export class InventoryService {
             pending: 0,
             available: 0,
             withdrawn: 0,
+            total: 0,
           };
         }
 
@@ -371,9 +383,8 @@ export class InventoryService {
           };
         }),
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          // Total should be: total quantities - withdrawn
-          const pairs = quantities.available - quantities.withdrawn;
-          const totalPairs = Math.max(0, pairs);
+          // Use the total field directly for all quantities regardless of status
+          const totalPairs = Math.max(0, quantities.total);
           const stockLevel = determineStockLevel(totalPairs);
           return {
             size,
