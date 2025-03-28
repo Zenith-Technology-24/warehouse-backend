@@ -373,7 +373,7 @@ export class InventoryService {
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
         available: Object.entries(sizeQuantities).map(([size, quantities]) => {
           // Available should be: total quantities - total pending
-          const pairs = quantities.available - quantities.pending;
+          const pairs = quantities.pending - quantities.available;
           const availablePairs = Math.max(0, pairs);
           const stockLevel = determineStockLevel(availablePairs);
           return {
