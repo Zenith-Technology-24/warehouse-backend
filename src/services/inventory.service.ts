@@ -364,15 +364,10 @@ export class InventoryService {
           .filter((detail) => detail.type === "available")
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          // Apply the exact formula: pairs = total - pending - pending - withdrawn
-          // where total is the available quantity
-          const totalPairs = Math.max(
-            0,
-            quantities.available -
-              quantities.pending -
-              quantities.pending -
-              quantities.withdrawn
-          );
+          // Apply the exact formula: pairs = total - pending - withdrawn
+          const pairs =
+            quantities.available - quantities.pending - quantities.withdrawn;
+          const totalPairs = Math.max(0, pairs);
           const stockLevel = determineStockLevel(totalPairs);
           return {
             size,
