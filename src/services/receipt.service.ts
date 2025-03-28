@@ -235,36 +235,6 @@ export class ReceiptService {
               console.log("ITEM SHII", item)
 
               
-            } else {
-              // Create new inventory
-              const inventory = await tx.inventory.create({
-                data: {
-                  name: inventoryItem.name,
-                  sizeType: inventoryItem.sizeType,
-                  quantity: String(inventoryItem.item.quantity),
-                  receipts: {
-                    connect: { id: receipt.id },
-                  },
-                },
-              });
-
-              // Create new item connected to both new inventory and receipt
-              await tx.item.create({
-                data: {
-                  item_name: inventoryItem.name,
-                  location: inventoryItem.item.location,
-                  size: inventoryItem.item.size,
-                  unit: inventoryItem.item.unit,
-                  quantity: String(inventoryItem.item.quantity),
-                  expiryDate: inventoryItem.item.expiryDate,
-                  price: String(inventoryItem.item.price),
-                  amount: String(inventoryItem.item.amount),
-                  receipt: {
-                    connect: { id: receipt.id },
-                  },
-                  inventoryId: inventory.id,
-                },
-              });
             }
           }
         }
