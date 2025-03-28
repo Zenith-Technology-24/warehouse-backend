@@ -384,7 +384,7 @@ export class InventoryService {
         }),
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
           // Use the total field directly for all quantities regardless of status
-          const totalPairs = Math.max(0, quantities.total);
+          const totalPairs = Math.max(0, quantities.total - quantities.withdrawn);
           const stockLevel = determineStockLevel(totalPairs);
           return {
             size,
