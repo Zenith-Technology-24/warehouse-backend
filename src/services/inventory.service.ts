@@ -294,7 +294,6 @@ export class InventoryService {
         }
 
         sizeQuantities[size].withdrawn += quantity;
-        quantitySummary.withdrawnQuantity += quantity;
       }
 
       let totalAvailable = 0;
@@ -360,13 +359,20 @@ export class InventoryService {
         pending: sizeDetails
           .filter((detail) => detail.type === "pending")
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
-        available: sizeDetails
-          .filter((detail) => detail.type === "available")
-          .map(({ size, pairs, status }) => ({ size, pairs, status })),
+        available: Object.entries(sizeQuantities).map(([size, quantities]) => {
+          // Available should be: total quantities - total pending
+          const pairs = quantities.available - quantities.pending;
+          const availablePairs = Math.max(0, pairs);
+          const stockLevel = determineStockLevel(availablePairs);
+          return {
+            size,
+            pairs: String(availablePairs),
+            status: stockLevel,
+          };
+        }),
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          // Apply the exact formula: pairs = total - pending - withdrawn
-          const pairs =
-            quantities.available - quantities.pending - quantities.withdrawn;
+          // Total should be: total quantities - withdrawn
+          const pairs = quantities.available - quantities.withdrawn;
           const totalPairs = Math.max(0, pairs);
           const stockLevel = determineStockLevel(totalPairs);
           return {
