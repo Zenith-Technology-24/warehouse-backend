@@ -266,10 +266,9 @@ export class InventoryService {
 
       const issuance = await Promise.all(
         issuances.map(async (detail) => {
-          const itemData = await prisma.item.findUnique({
+          const itemData = await prisma.item.findFirst({
             where: { issuanceDetailId: detail.id || "" },
           });
-
           const issuanceData = await prisma.issuance.findUnique({
             where: { id: detail.issuanceId || "" },
           });
