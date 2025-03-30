@@ -8,13 +8,13 @@ datasource db {
 }
 
 model ActivityLog {
-  id            String        @id @unique @default(uuid())
-  date          String        @unique
-  activity      String        @default("")
+  id            String @id @unique @default(uuid())
+  date          String @unique
+  activity      String @default("")
   performedById String
-  performedBy   User @relation(name: "performedByRelation", fields: [performedById], references: [id])
-  
-  @@map("activity_logs") 
+  performedBy   User   @relation(name: "performedByRelation", fields: [performedById], references: [id])
+
+  @@map("activity_logs")
 }
 
 model Inventory {
@@ -36,28 +36,31 @@ model Inventory {
   issuanceId String?
 
   // Add issuance details relation for more direct access
-  issuanceDetails IssuanceDetail[]
+  issuanceDetails      IssuanceDetail[]
+  InventoryTransaction InventoryTransaction[]
 
   @@map("inventories")
 }
 
 model Item {
-  id               String          @id @unique @default(uuid())
-  item_name        String
-  location         String
-  size             String?
-  unit             String?
-  receiptRef       String?
-  quantity         String?
-  expiryDate       DateTime?       @map("expiry_date")
-  price            String?
-  amount           String?
-  inventoryId      String?
-  inventory        Inventory[]
-  receipt          Receipt?        @relation(fields: [receiptId], references: [id])
-  receiptId        String?
-  IssuanceDetail   IssuanceDetail? @relation(fields: [issuanceDetailId], references: [id])
-  issuanceDetailId String?
+  id                     String                @id @unique @default(uuid())
+  item_name              String
+  location               String
+  size                   String?
+  unit                   String?
+  receiptRef             String?
+  quantity               String?
+  expiryDate             DateTime?             @map("expiry_date")
+  price                  String?
+  amount                 String?
+  inventoryId            String?
+  inventory              Inventory[]
+  receipt                Receipt?              @relation(fields: [receiptId], references: [id])
+  receiptId              String?
+  IssuanceDetail         IssuanceDetail?       @relation(fields: [issuanceDetailId], references: [id])
+  issuanceDetailId       String?
+  transactionId          InventoryTransaction? @relation(fields: [inventoryTransactionId], references: [id])
+  inventoryTransactionId String?
 
   @@map("items")
 }
@@ -86,7 +89,7 @@ model Issuance {
   validityDate      DateTime      @map("validity_date")
   documentNo        String?       @map("document_no")
   quantity          String?       @default("1")
-  endUsers          EndUser[]     // This creates the many-to-many relationship
+  endUsers          EndUser[] // This creates the many-to-many relationship
   status            ProductStatus @default(active)
   issuanceStatus    ProductStatus @default(pending)
   createdAt         DateTime      @default(now()) @map("created_at")
@@ -133,12 +136,11 @@ model EndUser {
   // Issuance    Issuance?        @relation(fields: [issuanceId], references: [id])
   // issuanceId  String?
   // Instead add a many-to-many relationship
-  issuances   Issuance[]      
+  issuances   Issuance[]
   inventory   Inventory[]
 
   @@map("end_users")
 }
-
 
 model Role {
   id          String   @id @unique @default(uuid())
@@ -153,22 +155,42 @@ model Role {
 }
 
 model User {
-  id        String     @id @unique @default(uuid())
-  email     String     @unique
-  firstname String
-  username  String?    @unique
-  lastname  String
-  password  String
-  status    UserStatus @default(active)
-  roles     Role[]
-  Token     Token?
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at")
-  Issuance  Issuance[]
-  Receipt   Receipt[]
+  id                    String        @id @unique @default(uuid())
+  email                 String        @unique
+  firstname             String
+  username              String?       @unique
+  lastname              String
+  password              String
+  status                UserStatus    @default(active)
+  roles                 Role[]
+  Token                 Token?
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @default(now()) @updatedAt @map("updated_at")
+  Issuance              Issuance[]
+  Receipt               Receipt[]
   performedActivityLogs ActivityLog[] @relation("performedByRelation")
 
   @@map("user")
+}
+
+model InventoryTransaction {
+  id          String          @id @unique @default(uuid())
+  inventoryId String
+  inventory   Inventory       @relation(fields: [inventoryId], references: [id])
+  quantity    String
+  type        TransactionType // RECEIPT or ISSUANCE
+  receiptId   String?
+  issuanceId  String?
+  size        String?
+  date        DateTime        @default(now())
+  Item        Item[]
+
+  @@map("inventory_transactions")
+}
+
+enum TransactionType {
+  RECEIPT
+  ISSUANCE
 }
 
 model Token {
