@@ -624,7 +624,7 @@ export class InventoryService {
       });
 
       return {
-        data: processedInventories,
+        data: processedInventories.filter((inv) => inv.receipts.length > 0),
         total: totalCount,
         currentPage: page,
         totalPages: Math.ceil(totalCount / pageSize),
