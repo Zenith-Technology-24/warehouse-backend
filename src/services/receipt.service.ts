@@ -407,11 +407,18 @@ export class ReceiptService {
                 not: null,
               },
             },
+            include: {
+              IssuanceDetail: true,
+            },
           });
 
           if (receiptItems.length === 0) {
             return {
               ...receipt,
+              max_quantity: 0,
+              issued_quantity: 0,
+              current_quantity: 0,
+              quantity_string: `${0}/${0}`,
             };
           }
 
@@ -427,6 +434,33 @@ export class ReceiptService {
             0,
             totalReceiptQuantity - totalIssuedQuantity
           );
+
+          if (issuedItems.length > 0) {
+            const issuanceDetailMap = new Map();
+
+            issuedItems.forEach((item) => {
+              if (item.issuanceDetailId) {
+                if (!issuanceDetailMap.has(item.issuanceDetailId)) {
+                  issuanceDetailMap.set(item.issuanceDetailId, {
+                    totalQuantity: 0,
+                    detail: item.IssuanceDetail,
+                  });
+                }
+
+                const entry = issuanceDetailMap.get(item.issuanceDetailId);
+                entry.totalQuantity += Number(item.quantity || "0");
+              }
+            });
+
+            for (const [detailId, info] of issuanceDetailMap.entries()) {
+              if (info.detail && info.totalQuantity >= totalReceiptQuantity) {
+                await prisma.issuanceDetail.update({
+                  where: { id: detailId },
+                  data: { status: "withdrawn" },
+                });
+              }
+            }
+          }
 
           return {
             ...receipt,
