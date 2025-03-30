@@ -635,6 +635,7 @@ export class IssuanceService {
           issuanceDate: true,
           validityDate: true,
           issuanceStatus: true,
+          createdAt: true,
           endUsers: {
             select: {
               id: true,
