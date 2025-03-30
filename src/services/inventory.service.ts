@@ -455,7 +455,9 @@ export class InventoryService {
         },
         sizeDetails: groupedSizeDetails,
         detailedQuantities: sizeQuantities,
-        issuance,
+        issuance: issuance.filter((iss) => {
+          return iss.status !== 'withdrawn'
+        }),
         items: items.filter((item) => {
           return item.issuanceDetailId == null;
         }),
