@@ -420,7 +420,7 @@ export class InventoryService {
         available: Object.entries(sizeQuantities).map(([size, quantities]) => {
           // Available should be: total quantities - total pending
           const pairs =
-            quantities.total - quantities.pending;
+            quantities.total - (quantities.pending + quantities.withdrawn);
           const availablePairs = Math.max(0, pairs);
           const stockLevel = determineStockLevel(availablePairs);
           return {
