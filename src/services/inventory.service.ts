@@ -238,7 +238,10 @@ export class InventoryService {
         }
 
         sizeQuantities[size].available += quantity;
-        quantitySummary.grandTotalAmount += amount;
+
+        if (item.receiptId !== null) {
+          quantitySummary.grandTotalAmount += amount;
+        }
       });
 
       const issuances = await prisma.issuanceDetail.findMany({
@@ -287,6 +290,8 @@ export class InventoryService {
         const quantity = parseInt(detail.quantity || "0", 10);
 
         const size = detail?.size || "No Size";
+        const price = parseFloat(detail.price || "0");
+        const amount = quantity * price;
 
         if (!sizeQuantities[size]) {
           sizeQuantities[size] = {
@@ -304,6 +309,7 @@ export class InventoryService {
         } else if (detail.status === "withdrawn") {
           sizeQuantities[size].withdrawn += quantity;
           quantitySummary.withdrawnQuantity += quantity;
+          quantitySummary.grandTotalAmount -= amount;
         }
       });
 
