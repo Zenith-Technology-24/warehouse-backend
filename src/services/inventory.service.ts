@@ -455,7 +455,7 @@ export class InventoryService {
         sizeDetails: groupedSizeDetails,
         detailedQuantities: sizeQuantities,
         issuance: issuance.filter((iss) => {
-          return iss.status !== 'withdrawn'
+          return iss.status !== "withdrawn";
         }),
         items: items.filter((item) => {
           return item.issuanceDetailId == null;
@@ -551,24 +551,21 @@ export class InventoryService {
                 availableQuantity += quantity;
                 grandTotalAmount += quantity * price;
               }
+
+              inventory.issuanceDetails.forEach((detail) => {
+                const issuedQuantity = parseInt(detail.quantity || "0", 10);
+                console.log(detail.quantity, price);
+                if (detail.status === "pending") {
+                  pendingIssuanceQuantity += issuedQuantity;
+                } else if (detail.status === "withdrawn") {
+                  withdrawnQuantity += issuedQuantity;
+                  availableQuantity -= issuedQuantity;
+                  grandTotalAmount -= issuedQuantity * price;
+                  console.log(grandTotalAmount);
+                }
+              });
             }
           });
-        });
-
-        // Process issuance details
-        inventory.issuanceDetails.forEach((detail) => {
-          const issuedQuantity = parseInt(detail.quantity || "0", 10);
-          const price = inventory.item
-            ? parseFloat(inventory.item.price || "0")
-            : 0;
-
-          if (detail.status === "pending") {
-            pendingIssuanceQuantity += issuedQuantity;
-          } else if (detail.status === "withdrawn") {
-            withdrawnQuantity += issuedQuantity;
-            availableQuantity -= issuedQuantity;
-            grandTotalAmount -= issuedQuantity * price;
-          }
         });
 
         // Process direct issuances
@@ -577,13 +574,9 @@ export class InventoryService {
             inventory.issuance.quantity || "0",
             10
           );
-          const price = inventory.item
-            ? parseFloat(inventory.item.price || "0")
-            : 0;
 
           withdrawnQuantity += issuedQuantity;
           availableQuantity -= issuedQuantity;
-          grandTotalAmount -= issuedQuantity * price;
         }
 
         // Ensure values don't go negative

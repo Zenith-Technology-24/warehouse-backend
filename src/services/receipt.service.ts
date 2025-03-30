@@ -26,6 +26,10 @@ export interface ReceiptsResponseType {
   totalPages: number;
 }
 
+export interface CurrentReceipt {
+  data: Receipt[];
+}
+
 interface CreateReceiptDto {
   source?: string;
   receipt_date: Date;
@@ -34,6 +38,178 @@ interface CreateReceiptDto {
   inventory?: InventoryPayload[];
 }
 export class ReceiptService {
+  private async getCurrentReceipt(id: string, inventoryId: string): Promise<CurrentReceipt | null> {
+    try {
+      const [receipts] = await Promise.all([
+        prisma.receipt.findMany({
+          where: {
+            id,
+          },
+          skip: 0,
+          take: 1,
+          include: {
+            inventory: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                sizeType: true,
+                item: {
+                  select: {
+                    location: true,
+                    size: true,
+                    quantity: true,
+                    expiryDate: true,
+                    item_name: true,
+                    unit: true,
+                    price: true,
+                    amount: true,
+                    inventoryId: true,
+                  },
+                },
+              },
+            },
+            user: {
+              select: {
+                lastname: true,
+                firstname: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        }),
+      ]);
+      const newReceipts = await Promise.all(
+        receipts.map(async (receipt) => {
+          const receiptItems = await prisma.item.findMany({
+            where: {
+              receiptId: receipt.id,
+              inventoryId
+            },
+          });
+
+          const issuedItems = await prisma.item.findMany({
+            where: {
+              receiptRef: receipt.issuanceDirective,
+              inventoryId,
+              issuanceDetailId: {
+                not: null,
+              },
+            },
+            include: {
+              IssuanceDetail: true,
+            },
+          });
+
+          if (receiptItems.length === 0) {
+            return {
+              ...receipt,
+              max_quantity: 0,
+              issued_quantity: 0,
+              current_quantity: 0,
+              quantity_string: `${0}/${0}`,
+            };
+          }
+
+          const totalReceiptQuantity = receiptItems.reduce((acc, item) => {
+            return acc + Number(item.quantity || "0");
+          }, 0);
+
+          const totalIssuedQuantity = issuedItems.reduce((acc, item) => {
+            return acc + Number(item.quantity || "0");
+          }, 0);
+
+          const remainingQuantity = Math.max(
+            0,
+            totalReceiptQuantity - totalIssuedQuantity
+          );
+
+          if (issuedItems.length > 0) {
+            const issuanceDetailMap = new Map();
+
+            issuedItems.forEach((item) => {
+              if (item.issuanceDetailId) {
+                if (!issuanceDetailMap.has(item.issuanceDetailId)) {
+                  issuanceDetailMap.set(item.issuanceDetailId, {
+                    totalQuantity: 0,
+                    detail: item.IssuanceDetail,
+                  });
+                }
+
+                const entry = issuanceDetailMap.get(item.issuanceDetailId);
+                entry.totalQuantity += Number(item.quantity || "0");
+              }
+            });
+
+            for (const [detailId, info] of issuanceDetailMap.entries()) {
+              if (info.detail && info.totalQuantity >= totalReceiptQuantity) {
+                await prisma.issuanceDetail.update({
+                  where: { id: detailId },
+                  data: { status: "withdrawn" },
+                });
+              }
+            }
+          }
+
+          return {
+            ...receipt,
+            max_quantity: totalReceiptQuantity,
+            issued_quantity: totalIssuedQuantity,
+            current_quantity: remainingQuantity,
+            quantity_string: `${remainingQuantity}/${totalReceiptQuantity}`,
+          };
+        })
+      );
+
+      const formattedReceipts = newReceipts.map((receipt) => {
+        const formattedInventories = receipt.inventory.map((inv) => {
+          if (inv.item) {
+            const formattedItem = {
+              ...inv.item,
+              price: inv.item.price
+                ? new Intl.NumberFormat("en-EN", {
+                    maximumFractionDigits: 2,
+                  }).format(parseFloat(inv.item.price))
+                : "0.00",
+              amount: inv.item.amount
+                ? new Intl.NumberFormat("en-EN", {
+                    maximumFractionDigits: 2,
+                  }).format(parseFloat(inv.item.amount))
+                : "0.00",
+            };
+
+            return { ...inv, item: formattedItem };
+          }
+          return inv;
+        });
+
+        const totalAmount = receipt.inventory.reduce((sum, inv) => {
+          if (inv.item?.amount) {
+            return sum + parseFloat(inv.item.amount);
+          }
+          return sum;
+        }, 0);
+
+        return {
+          ...receipt,
+          inventory: formattedInventories,
+          totalAmount: new Intl.NumberFormat("en-EN", {
+            maximumFractionDigits: 2,
+          }).format(totalAmount),
+        };
+      });
+
+      return {
+        data: formattedReceipts,
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get receipts: ${error.message}`);
+    }
+  }
+
   async create(data: CreateReceiptDto, user: User): Promise<Receipt> {
     try {
       const receipt = await prisma.$transaction(async (tx) => {
@@ -256,6 +432,7 @@ export class ReceiptService {
               price: true,
               amount: true,
               inventoryId: true,
+              receiptId: true,
               inventory: {
                 select: {
                   id: true,
@@ -300,21 +477,40 @@ export class ReceiptService {
         inventoryMap.set(inv.id, inv);
       });
 
-      const itemsWithInventory = receipt.item.map((item) => ({
-        ...item,
-        inventory: item.inventoryId ? inventoryMap.get(item.inventoryId) : null,
+      const itemsWithInventory = await Promise.all(
+        receipt.item.map(async (item) => {
+          console.log(item.inventoryId);
+          const currentReceipt = await this.getCurrentReceipt(
+            item.receiptId || "",
+            item.inventoryId
+          );
 
-        price: item.price
-          ? new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(
-              parseFloat(item.price)
-            )
-          : "0.00",
-        amount: item.amount
-          ? new Intl.NumberFormat("en-EN", { maximumFractionDigits: 2 }).format(
-              parseFloat(item.amount)
-            )
-          : "0.00",
-      }));
+          if (!currentReceipt?.data.length) {
+            return {
+              ...item,
+            };
+          }
+
+          return {
+            ...item,
+            inventory: item.inventoryId
+              ? inventoryMap.get(item.inventoryId)
+              : null,
+
+            price: item.price
+              ? new Intl.NumberFormat("en-EN", {
+                  maximumFractionDigits: 2,
+                }).format(parseFloat(item.price))
+              : "0.00",
+            amount: item.amount
+              ? new Intl.NumberFormat("en-EN", {
+                  maximumFractionDigits: 2,
+                }).format(parseFloat(item.amount))
+              : "0.00",
+            ...currentReceipt.data[0],
+          };
+        })
+      );
 
       const totalAmount = receipt.item.reduce((sum, item) => {
         return sum + parseFloat(item.amount || "0");
