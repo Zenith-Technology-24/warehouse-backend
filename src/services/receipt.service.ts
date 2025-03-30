@@ -392,18 +392,6 @@ export class ReceiptService {
         prisma.receipt.count({ where: where as never }),
       ]);
 
-      const inventories = await prisma.inventory.findMany({
-        where: {
-          id: {
-            in: receipts
-              .filter((item) => item.inventory && item.inventory.length > 0)
-              .flatMap((item) =>
-                item.inventory.map((idx) => idx.id)
-              ) as string[],
-          },
-        },
-      });
-
       const newReceipts = await Promise.all(
         receipts.map(async (receipt) => {
           const receiptItems = await prisma.item.findMany({
