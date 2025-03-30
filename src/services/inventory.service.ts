@@ -537,35 +537,37 @@ export class InventoryService {
           availableQuantity += quantity;
           grandTotalAmount += quantity * price;
         }
+        let currentPrice = 0;
 
         // Process receipts
         inventory.receipts.forEach((receipt) => {
           receipt.item.forEach((item) => {
             if (item.inventoryId === inventory.id) {
               const quantity = parseInt(item.quantity || "0", 10);
-              const price = parseFloat(item.price || "0");
+              currentPrice = parseFloat(item.price || "0");
               if (receipt.status === "pending") {
                 pendingQuantity += quantity;
               } else {
                 totalQuantity += quantity;
                 availableQuantity += quantity;
-                grandTotalAmount += quantity * price;
+                grandTotalAmount += quantity * currentPrice;
               }
 
-              inventory.issuanceDetails.forEach((detail) => {
-                const issuedQuantity = parseInt(detail.quantity || "0", 10);
-                console.log(detail.quantity, price);
-                if (detail.status === "pending") {
-                  pendingIssuanceQuantity += issuedQuantity;
-                } else if (detail.status === "withdrawn") {
-                  withdrawnQuantity += issuedQuantity;
-                  availableQuantity -= issuedQuantity;
-                  grandTotalAmount -= issuedQuantity * price;
-                  console.log(grandTotalAmount);
-                }
-              });
+              
             }
           });
+        });
+
+        inventory.issuanceDetails.forEach((detail) => {
+          const issuedQuantity = parseInt(detail.quantity || "0", 10);
+          console.log(detail.quantity, currentPrice);
+          if (detail.status === "pending") {
+            pendingIssuanceQuantity += issuedQuantity;
+          } else if (detail.status === "withdrawn") {
+            withdrawnQuantity += issuedQuantity;
+            availableQuantity -= issuedQuantity;
+            grandTotalAmount -= issuedQuantity * currentPrice;
+          }
         });
 
         // Process direct issuances
@@ -583,9 +585,6 @@ export class InventoryService {
         availableQuantity = Math.max(0, availableQuantity);
         grandTotalAmount = Math.max(0, grandTotalAmount);
 
-        // Calculate the original total quantity (before withdrawals)
-        const originalTotalQuantity = totalQuantity;
-
         // Calculate current total (applying the same formula as in getInventoryById)
         totalQuantity = Math.max(0, totalQuantity - withdrawnQuantity);
 
@@ -601,14 +600,10 @@ export class InventoryService {
           }
         }
 
-        // Create availability ratio
-        const availabilityRatio = `${availableQuantity}/${originalTotalQuantity}`;
-
         return {
           ...inventory,
           totalQuantity,
           availableQuantity,
-          quantity: availabilityRatio,
           stockLevel,
           grandTotalAmount: new Intl.NumberFormat("en-EN", {
             maximumFractionDigits: 2,
