@@ -38,7 +38,13 @@ interface CreateReceiptDto {
   inventory?: InventoryPayload[];
 }
 export class ReceiptService {
-  private async getCurrentReceipt(id: string, inventoryId: string, issuanceDirective: string, size: string): Promise<CurrentReceipt | null> {
+  private async getCurrentReceipt(
+    id: string,
+    inventoryId: string,
+    issuanceDirective: string,
+    size: string,
+    itemId: string
+  ): Promise<CurrentReceipt | null> {
     try {
       const [receipts] = await Promise.all([
         prisma.receipt.findMany({
@@ -86,19 +92,23 @@ export class ReceiptService {
         receipts.map(async (receipt) => {
           const receiptItems = await prisma.item.findMany({
             where: {
-              receiptId: receipt.id,
-              inventoryId
+              id: itemId,
+              receiptId: id,
+              issuanceDetailId: null,
+              inventoryId,
+              size,
             },
           });
 
           const issuedItems = await prisma.item.findMany({
             where: {
+              receiptId: id,
               receiptRef: issuanceDirective,
               inventoryId,
               issuanceDetailId: {
                 not: null,
               },
-              size
+              size,
             },
             include: {
               IssuanceDetail: true,
@@ -120,7 +130,7 @@ export class ReceiptService {
           }, 0);
 
           const totalIssuedQuantity = issuedItems.reduce((acc, item) => {
-            return acc + Number(item.quantity || "0");
+            return Number(item.quantity || "0");
           }, 0);
 
           const remainingQuantity = Math.max(
@@ -260,6 +270,7 @@ export class ReceiptService {
                   expiryDate: inventoryItem.item.expiryDate,
                   price: String(inventoryItem.item.price),
                   amount: String(inventoryItem.item.amount),
+                  receiptRef: data.issuanceDirective,
                   receipt: {
                     connect: { id: receipt.id },
                   },
@@ -302,6 +313,7 @@ export class ReceiptService {
                   expiryDate: inventoryItem.item.expiryDate,
                   price: String(inventoryItem.item.price),
                   amount: String(inventoryItem.item.amount),
+                  receiptRef: data.issuanceDirective,
                   receipt: {
                     connect: { id: receipt.id },
                   },
@@ -424,6 +436,7 @@ export class ReceiptService {
         include: {
           item: {
             select: {
+              id: true,
               location: true,
               size: true,
               quantity: true,
@@ -434,6 +447,8 @@ export class ReceiptService {
               amount: true,
               inventoryId: true,
               receiptId: true,
+              receiptRef: true,
+              issuanceDetailId: true,
               inventory: {
                 select: {
                   id: true,
@@ -479,41 +494,44 @@ export class ReceiptService {
       });
 
       const itemsWithInventory = await Promise.all(
-        receipt.item.map(async (item) => {
-          console.log(item.inventoryId);
-          const currentReceipt = await this.getCurrentReceipt(
-            item.receiptId || "",
-            item.inventoryId,
-            receipt.issuanceDirective,
-            item.size
-          );
+        receipt.item
+          .filter((item) => item.issuanceDetailId === null)
+          .map(async (item) => {
+            console.log(item.id);
+            const currentReceipt = await this.getCurrentReceipt(
+              item.receiptId || "",
+              item.inventoryId,
+              receipt.issuanceDirective,
+              item.size,
+              item.id
+            );
 
-          if (!currentReceipt?.data.length) {
+            if (!currentReceipt?.data.length) {
+              return {
+                ...item,
+              };
+            }
+
             return {
               ...item,
+              inventory: item.inventoryId
+                ? inventoryMap.get(item.inventoryId)
+                : null,
+
+              price: item.price
+                ? new Intl.NumberFormat("en-EN", {
+                    maximumFractionDigits: 2,
+                  }).format(parseFloat(item.price))
+                : "0.00",
+              amount: item.amount
+                ? new Intl.NumberFormat("en-EN", {
+                    maximumFractionDigits: 2,
+                  }).format(parseFloat(item.amount))
+                : "0.00",
+              ...currentReceipt.data[0],
+              quantity: item.quantity,
             };
-          }
-
-          return {
-            ...item,
-            inventory: item.inventoryId
-              ? inventoryMap.get(item.inventoryId)
-              : null,
-
-            price: item.price
-              ? new Intl.NumberFormat("en-EN", {
-                  maximumFractionDigits: 2,
-                }).format(parseFloat(item.price))
-              : "0.00",
-            amount: item.amount
-              ? new Intl.NumberFormat("en-EN", {
-                  maximumFractionDigits: 2,
-                }).format(parseFloat(item.amount))
-              : "0.00",
-            ...currentReceipt.data[0],
-            quantity: item.quantity,
-          };
-        })
+          })
       );
 
       const totalAmount = receipt.item.reduce((sum, item) => {
