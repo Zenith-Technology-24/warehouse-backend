@@ -541,7 +541,7 @@ export class InventoryService {
 
         // Process receipts
         inventory.receipts.forEach((receipt) => {
-          receipt.item.forEach((item) => {
+          receipt.item.filter(i => i.issuanceDetailId === null).forEach((item) => {
             if (item.inventoryId === inventory.id) {
               const quantity = parseInt(item.quantity || "0", 10);
               currentPrice = parseFloat(item.price || "0");
@@ -552,8 +552,6 @@ export class InventoryService {
                 availableQuantity += quantity;
                 grandTotalAmount += quantity * currentPrice;
               }
-
-              
             }
           });
         });
