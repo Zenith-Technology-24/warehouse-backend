@@ -374,8 +374,7 @@ export class InventoryService {
 
       quantitySummary.availableQuantity =
         totalAvailable - quantitySummary.pendingQuantity;
-      quantitySummary.totalQuantity =
-        totalAvailable - quantitySummary.withdrawnQuantity;
+      quantitySummary.totalQuantity = totalAvailable;
 
       const sizeDetails: Array<{
         size: string;
@@ -421,7 +420,7 @@ export class InventoryService {
         available: Object.entries(sizeQuantities).map(([size, quantities]) => {
           // Available should be: total quantities - total pending
           const pairs =
-            quantities.total - quantities.pending - quantities.withdrawn;
+            quantities.total - quantities.pending;
           const availablePairs = Math.max(0, pairs);
           const stockLevel = determineStockLevel(availablePairs);
           return {
@@ -433,7 +432,7 @@ export class InventoryService {
 
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
           // Use the properly calculated total quantities directly
-          const totalPairs = quantities.total;
+          const totalPairs = quantities.total - quantities.withdrawn;
           const stockLevel = determineStockLevel(totalPairs);
           return {
             size,
