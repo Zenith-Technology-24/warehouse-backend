@@ -413,26 +413,26 @@ export class ReceiptService {
                 },
               });
 
-              if (inventoryItem.id) {
-                const transaction = await tx.inventoryTransaction.create({
-                  data: {
-                    quantity: String(inventoryItem.item.quantity),
-                    type: "RECEIPT",
-                    inventoryId: inventoryItem.id,
-                    receiptId: receipt.id,
-                    size: inventoryItem.item.size
-                  }
-                });
+              // if (inventoryItem.id) {
+              //   const transaction = await tx.inventoryTransaction.create({
+              //     data: {
+              //       quantity: String(inventoryItem.item.quantity),
+              //       type: "RECEIPT",
+              //       inventoryId: inventoryItem.id,
+              //       receiptId: receipt.id,
+              //       size: inventoryItem.item.size
+              //     }
+              //   });
 
-                await tx.item.update({
-                  where: {
-                    id: item.id
-                  },
-                  data: {
-                    inventoryTransactionId: transaction.id
-                  }
-                })
-              }
+              //   await tx.item.update({
+              //     where: {
+              //       id: item.id
+              //     },
+              //     data: {
+              //       inventoryTransactionId: transaction.id
+              //     }
+              //   })
+              // }
             }
           }
         }
