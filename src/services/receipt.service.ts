@@ -170,7 +170,8 @@ export class ReceiptService {
             max_quantity: totalReceiptQuantity,
             issued_quantity: totalIssuedQuantity,
             current_quantity: remainingQuantity,
-            quantity_string: `${remainingQuantity}/${totalReceiptQuantity}`,
+            is_consumed: totalIssuedQuantity >= totalReceiptQuantity,
+            quantity_string: `${totalIssuedQuantity}/${totalReceiptQuantity}`,
           };
         })
       );
@@ -704,7 +705,8 @@ export class ReceiptService {
             max_quantity: totalReceiptQuantity,
             issued_quantity: totalIssuedQuantity,
             current_quantity: remainingQuantity,
-            quantity_string: `${remainingQuantity}/${totalReceiptQuantity}`,
+            is_consumed: totalIssuedQuantity >= totalReceiptQuantity,
+            quantity_string: `${totalIssuedQuantity}/${totalReceiptQuantity}`,
           };
         })
       );
