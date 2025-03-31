@@ -239,7 +239,7 @@ export class InventoryService {
 
         sizeQuantities[size].available += quantity;
 
-        if (item.receiptId && !item.issuanceDetailId) {
+        if (item.receiptId) {
           quantitySummary.grandTotalAmount += amount;
         }
       });

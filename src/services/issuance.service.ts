@@ -188,7 +188,6 @@ export class IssuanceService {
                       receiptRef: inventoryItem.receiptRef,
                       inventoryId: inventoryItem.id,
                       issuanceDetailId: issuanceDetail.id,
-                      receiptId: currentReceipt?.id
                     },
                   });
                 }
