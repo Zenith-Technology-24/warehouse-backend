@@ -23,6 +23,19 @@ export const getIssuances = async (c: Context) => {
   );
 };
 
+export const exportIssuance = async (c: Context) => {
+  const requestBody = await c.req.json();
+  const { start_date, end_date, search, status } = requestBody;
+  return c.json(
+    await issuanceService.export(
+      start_date ?? "", 
+      end_date ?? "", 
+      status,
+      search ?? ""
+    ), 200
+  );
+}
+
 export const fetchReceiptsForIssuance = async (c: Context) => {
   return c.json(await issuanceService.getReceipts(), 200);
 };
@@ -44,3 +57,23 @@ export const updateIssuance = async (c: Context & { user: User }) => {
 export const getInventoryIssuance = async (c: Context) => {
   return c.json(await inventoryService.issuanceInventories(), 200);
 };
+
+export const withdrawIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.withdrawIssuance(id), 200);
+}
+
+export const withdrawAllIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.withdrawAllIssuance(id), 200);
+}
+
+export const archiveIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.archiveIssuance(id), 200);
+}
+
+export const unArchiveIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.unArchiveIssuance(id), 200);
+}

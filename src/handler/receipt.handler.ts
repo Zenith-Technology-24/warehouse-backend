@@ -5,7 +5,6 @@ import { Context } from "hono";
 const receiptService = new ReceiptService();
 
 export const getReceiptById = async (c: Context) => {
-  
   const id = c.req.param("id");
   return c.json(await receiptService.getReceiptById(id), 200);
 };
@@ -22,6 +21,20 @@ export const getReceipts = async (c: Context) => {
   );
 };
 
+export const exportReceipt = async (c: Context) => {
+  const requestBody = await c.req.json();
+
+  const { start_date, end_date, search, status } = requestBody;
+  return c.json(
+    await receiptService.export(
+      start_date ?? "",
+      end_date ?? "",
+      status,
+      search ?? ""
+    ),
+    200
+  );
+};
 
 export const createReceipts = async (c: Context & { user: User }) => {
   const data = await c.req.json();
@@ -35,16 +48,22 @@ export const updateReceipt = async (c: Context) => {
   const data = await c.req.json();
 
   return c.json(await receiptService.update(id, data), 201);
-}
+};
 
 export const archiveReceipt = async (c: Context) => {
   const id = c.req.param("id");
 
   return c.json(await receiptService.archive(id), 201);
-}
+};
 
 export const unArchiveReceipt = async (c: Context) => {
   const id = c.req.param("id");
 
   return c.json(await receiptService.unArchive(id), 201);
-}
+};
+
+export const deleteReceipt = async (c: Context) => {
+  const id = c.req.param("id");
+
+  return c.json(await receiptService.deleteReceipt(id), 201);
+};

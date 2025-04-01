@@ -8,6 +8,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { HTTPException } from "hono/http-exception";
 import { Context } from "vm";
 import receipt from "./receipt.route";
+import activityLog from "./activity-log.route";
 
 const errorHandler = async (err: Error, c: Context) => {
   console.error('Error:', err);
@@ -20,11 +21,14 @@ const errorHandler = async (err: Error, c: Context) => {
   }
 
   if (err instanceof PrismaClientKnownRequestError) {
+    const field = Array.isArray(err.meta?.target) 
+          ? (err.meta?.target as string[]).join(', ')
+          : err.meta?.target as string;
     switch (err.code) {
       case 'P2002':
         return c.json({
-          message: 'Unique constraint violation',
-          field: err.meta?.target,
+          message: `A record with this ${field} already exists`,
+          field: field,
           code: err.code
         }, 400);
       case 'P2025':
@@ -58,4 +62,5 @@ export const routes = (app: OpenAPIHono) => {
   app.route("/api/issuance", issuance);
   app.route("/api/end-user", endUser);
   app.route("/api/receipt", receipt);
+  app.route("/api/activity-log", activityLog)
 };
