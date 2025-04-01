@@ -157,6 +157,9 @@ export class IssuanceService {
 
                 // 3.6 Create item if receipt reference is provided
                 if (inventoryItem.receiptRef) {
+                  const currentReceipt = await tx.receipt.findFirst({
+                    where: { issuanceDirective: inventoryItem.receiptRef },
+                  });
                   const currentInventory =
                     await inventoryService.getInventoryById(inventoryItem.id);
                   if (currentInventory) {
@@ -192,6 +195,7 @@ export class IssuanceService {
                       quantity: String(inventoryItem.quantity),
                       type: "ISSUANCE",
                       issuanceId: issuance.id,
+                      receiptId: currentReceipt?.id,
                       size: inventoryItem?.size || "NO SIZE",
                       amount: String(inventoryItem?.amount) || "1",
                       itemId: item.id,

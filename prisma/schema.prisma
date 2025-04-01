@@ -184,6 +184,7 @@ model InventoryTransaction {
   date        DateTime        @default(now())
   itemId      String?
   amount      String?
+  receiptRef  String?
   item        Item?           @relation(fields: [itemId], references: [id])
 
   @@map("inventory_transactions")

@@ -41,8 +41,6 @@ export class ReceiptService {
   private async getCurrentReceipt(
     id: string,
     inventoryId: string,
-    issuanceDirective: string,
-    size: string,
     itemId: string
   ): Promise<CurrentReceipt | null> {
     try {
@@ -90,28 +88,22 @@ export class ReceiptService {
       ]);
       const newReceipts = await Promise.all(
         receipts.map(async (receipt) => {
-          const receiptItems = await prisma.item.findMany({
+          const receiptItems = await prisma.inventoryTransaction.findMany({
             where: {
-              id: itemId,
+              itemId,
               receiptId: id,
-              issuanceDetailId: null,
               inventoryId,
-              size,
+              type: "RECEIPT",
             },
           });
 
-          const issuedItems = await prisma.item.findMany({
+          const issuedItems = await prisma.inventoryTransaction.findMany({
             where: {
-              receiptId: id,
-              receiptRef: issuanceDirective,
-              inventoryId,
-              issuanceDetailId: {
-                not: null,
-              },
-              size,
-            },
-            include: {
-              IssuanceDetail: true,
+              inventoryId: inventoryId,
+              type: "ISSUANCE",
+              issuanceId: {
+                not: null
+              }
             },
           });
 
@@ -142,15 +134,14 @@ export class ReceiptService {
             const issuanceDetailMap = new Map();
 
             issuedItems.forEach((item) => {
-              if (item.issuanceDetailId) {
-                if (!issuanceDetailMap.has(item.issuanceDetailId)) {
-                  issuanceDetailMap.set(item.issuanceDetailId, {
+              if (item.issuanceId) {
+                if (!issuanceDetailMap.has(item.issuanceId)) {
+                  issuanceDetailMap.set(item.issuanceId, {
                     totalQuantity: 0,
-                    detail: item.IssuanceDetail,
                   });
                 }
 
-                const entry = issuanceDetailMap.get(item.issuanceDetailId);
+                const entry = issuanceDetailMap.get(item.issuanceId);
                 entry.totalQuantity += Number(item.quantity || "0");
               }
             });
@@ -591,12 +582,10 @@ export class ReceiptService {
         receipt.item
           .filter((item) => item.issuanceDetailId === null)
           .map(async (item) => {
-            console.log(item.id);
+            console.log(item.receiptRef);
             const currentReceipt = await this.getCurrentReceipt(
               item.receiptId || "",
-              item.inventoryId,
-              receipt.issuanceDirective,
-              item.size,
+              item.inventoryId || "",
               item.id
             );
 
