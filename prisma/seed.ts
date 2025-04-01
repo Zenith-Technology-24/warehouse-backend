@@ -73,6 +73,42 @@ async function seedUsers() {
         roles: { connect: { id: superadminRole.id } },
       },
     }),
+    prisma.user.upsert({
+      where: { email: "glennadmin@example.com" },
+      update: {},
+      create: {
+        email: "glennadmin@example.com",
+        firstname: "Glenn",
+        lastname: "Super Admin",
+        username: "glennadmin",
+        password: await argon2.hash("password123"),
+        roles: { connect: { id: superadminRole.id } },
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: "christineadmin@example.com" },
+      update: {},
+      create: {
+        email: "christineadmin@example.com",
+        firstname: "Christine",
+        lastname: "Super Admin",
+        username: "christineadmin",
+        password: await argon2.hash("password123"),
+        roles: { connect: { id: superadminRole.id } },
+      },
+    }),
+    prisma.user.upsert({
+      where: { email: "robertadmin@example.com" },
+      update: {},
+      create: {
+        email: "robertadmin@example.com",
+        firstname: "Robert",
+        lastname: "Super Admin",
+        username: "robertadmin",
+        password: await argon2.hash("password123"),
+        roles: { connect: { id: superadminRole.id } },
+      },
+    }),
   ]);
 
   console.log(`✅ Created ${users.length} users`);
