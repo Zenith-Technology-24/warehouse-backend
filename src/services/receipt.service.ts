@@ -261,7 +261,8 @@ export class ReceiptService {
             });
 
             if (existingInventory) {
-              await tx.item.create({
+              // Create item for existing inventory
+              const createdItem = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
@@ -279,6 +280,7 @@ export class ReceiptService {
                 },
               });
 
+              // Update inventory quantity
               await tx.inventory.update({
                 where: { id: existingInventory.id },
                 data: {
@@ -291,7 +293,21 @@ export class ReceiptService {
                   },
                 },
               });
+
+              // Create inventory transaction for existing inventory
+              await tx.inventoryTransaction.create({
+                data: {
+                  inventoryId: existingInventory.id,
+                  quantity: String(inventoryItem.item.quantity),
+                  type: "RECEIPT",
+                  receiptId: receipt.id,
+                  size: inventoryItem.item.size || "NO SIZE",
+                  amount: String(inventoryItem.item.amount) || "1",
+                  itemId: createdItem.id,
+                },
+              });
             } else {
+              // Create new inventory
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -304,7 +320,8 @@ export class ReceiptService {
                 },
               });
 
-              await tx.item.create({
+              // Create item for new inventory
+              const createdItem = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
@@ -319,6 +336,19 @@ export class ReceiptService {
                     connect: { id: receipt.id },
                   },
                   inventoryId: inventory.id,
+                },
+              });
+
+              // Create inventory transaction for new inventory
+              await tx.inventoryTransaction.create({
+                data: {
+                  inventoryId: inventory.id,
+                  quantity: String(inventoryItem.item.quantity),
+                  type: "RECEIPT",
+                  receiptId: receipt.id,
+                  size: inventoryItem.item.size || "NO SIZE",
+                  amount: String(inventoryItem.item.amount) || "1",
+                  itemId: createdItem.id,
                 },
               });
             }
@@ -349,12 +379,19 @@ export class ReceiptService {
       }
 
       const updatedReceipt = await prisma.$transaction(async (tx) => {
+        // 1. Delete all existing inventory transactions for this receipt
+        await tx.inventoryTransaction.deleteMany({
+          where: { receiptId: id },
+        });
+
+        // 2. Delete all existing items
         for (const item of existingReceipt.item) {
           await tx.item.delete({
             where: { id: item.id },
           });
         }
 
+        // 3. Disconnect all inventories
         await tx.receipt.update({
           where: { id },
           data: {
@@ -366,6 +403,7 @@ export class ReceiptService {
           },
         });
 
+        // 4. Update the receipt with new data
         const receipt = await tx.receipt.update({
           where: { id },
           data: {
@@ -375,6 +413,7 @@ export class ReceiptService {
           },
         });
 
+        // 5. Process inventory items and create new transactions
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
             const existingInventory = await tx.inventory.findFirst({
@@ -397,7 +436,7 @@ export class ReceiptService {
                 },
               });
 
-              const item = await tx.item.create({
+              const createdItem = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
                   location: inventoryItem.item.location,
@@ -414,26 +453,61 @@ export class ReceiptService {
                 },
               });
 
-              // if (inventoryItem.id) {
-              //   const transaction = await tx.inventoryTransaction.create({
-              //     data: {
-              //       quantity: String(inventoryItem.item.quantity),
-              //       type: "RECEIPT",
-              //       inventoryId: inventoryItem.id,
-              //       receiptId: receipt.id,
-              //       size: inventoryItem.item.size
-              //     }
-              //   });
+              // Create inventory transaction for the updated inventory
+              await tx.inventoryTransaction.create({
+                data: {
+                  inventoryId: inventory.id,
+                  quantity: String(inventoryItem.item.quantity),
+                  type: "RECEIPT",
+                  receiptId: receipt.id,
+                  size: inventoryItem.item.size || "NO SIZE",
+                  amount: String(inventoryItem.item.amount) || "1",
+                  itemId: createdItem.id,
+                },
+              });
+            } else {
+              // Create new inventory if it doesn't exist
+              const newInventory = await tx.inventory.create({
+                data: {
+                  name: inventoryItem.name,
+                  sizeType: inventoryItem.item.size ? "apparrel" : "none",
+                  unit: inventoryItem.item.unit,
+                  quantity: String(inventoryItem.item.quantity),
+                  receipts: {
+                    connect: { id: receipt.id },
+                  },
+                },
+              });
 
-              //   await tx.item.update({
-              //     where: {
-              //       id: item.id
-              //     },
-              //     data: {
-              //       inventoryTransactionId: transaction.id
-              //     }
-              //   })
-              // }
+              const createdItem = await tx.item.create({
+                data: {
+                  item_name: inventoryItem.name,
+                  location: inventoryItem.item.location,
+                  size: inventoryItem.item.size,
+                  unit: inventoryItem.item.unit,
+                  quantity: String(inventoryItem.item.quantity),
+                  expiryDate: inventoryItem.item.expiryDate,
+                  price: String(inventoryItem.item.price),
+                  amount: String(inventoryItem.item.amount),
+                  receipt: {
+                    connect: { id: receipt.id },
+                  },
+                  inventoryId: newInventory.id,
+                },
+              });
+
+              // Create inventory transaction for the new inventory
+              await tx.inventoryTransaction.create({
+                data: {
+                  inventoryId: newInventory.id,
+                  quantity: String(inventoryItem.item.quantity),
+                  type: "RECEIPT",
+                  receiptId: receipt.id,
+                  size: inventoryItem.item.size || "NO SIZE",
+                  amount: String(inventoryItem.item.amount) || "1",
+                  itemId: createdItem.id,
+                },
+              });
             }
           }
         }

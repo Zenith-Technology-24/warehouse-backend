@@ -157,11 +157,6 @@ export class IssuanceService {
 
                 // 3.6 Create item if receipt reference is provided
                 if (inventoryItem.receiptRef) {
-                  const currentReceipt = await tx.receipt.findFirst({
-                    where: {
-                      issuanceDirective: inventoryItem.receiptRef,
-                    }
-                  });
                   const currentInventory =
                     await inventoryService.getInventoryById(inventoryItem.id);
                   if (currentInventory) {
@@ -175,7 +170,7 @@ export class IssuanceService {
                     }
                   }
 
-                  await tx.item.create({
+                  const item = await tx.item.create({
                     data: {
                       item_name: inventoryItem?.name || "NO NAME",
                       location: inventoryItem?.location || "NO LOCATION",
@@ -188,6 +183,18 @@ export class IssuanceService {
                       receiptRef: inventoryItem.receiptRef,
                       inventoryId: inventoryItem.id,
                       issuanceDetailId: issuanceDetail.id,
+                    },
+                  });
+
+                  await tx.inventoryTransaction.create({
+                    data: {
+                      inventoryId: inventoryItem.id,
+                      quantity: String(inventoryItem.quantity),
+                      type: "ISSUANCE",
+                      issuanceId: issuance.id,
+                      size: inventoryItem?.size || "NO SIZE",
+                      amount: String(inventoryItem?.amount) || "1",
+                      itemId: item.id,
                     },
                   });
                 }
@@ -254,6 +261,11 @@ export class IssuanceService {
           }
 
           // Step 1: Disconnect and clean up all existing relationships
+
+          // 1.0: Delete related inventory transactions for this issuance
+          await tx.inventoryTransaction.deleteMany({
+            where: { issuanceId: id },
+          });
 
           // 1.1: Disconnect all end users
           if (existingIssuance.endUsers.length > 0) {
@@ -380,7 +392,7 @@ export class IssuanceService {
 
                   // If receipt reference is provided, create/update item information
                   if (inventoryItem.receiptRef) {
-                    await tx.item.create({
+                    const createdItem = await tx.item.create({
                       data: {
                         item_name: inventoryItem?.name || "NO NAME",
                         location: inventoryItem?.location || "NO LOCATION",
@@ -393,6 +405,19 @@ export class IssuanceService {
                         receiptRef: inventoryItem.receiptRef,
                         inventoryId: existingInventory.id,
                         issuanceDetailId: issuanceDetail.id,
+                      },
+                    });
+
+                    // Create inventory transaction record
+                    await tx.inventoryTransaction.create({
+                      data: {
+                        inventoryId: inventoryItem.id,
+                        quantity: String(inventoryItem.quantity),
+                        type: "ISSUANCE",
+                        issuanceId: updatedIssuance.id,
+                        size: inventoryItem?.size || "NO SIZE",
+                        amount: String(inventoryItem?.amount) || "1",
+                        itemId: createdItem.id,
                       },
                     });
                   }
@@ -715,10 +740,12 @@ export class IssuanceService {
                       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
                         str
                       );
-                    const itemSize = isUuid(item.size || "") ? await prisma.item.findUnique({
-                      where: { id: item.size || "" },
-                      select: { size: true, id: true },
-                    }) : null;
+                    const itemSize = isUuid(item.size || "")
+                      ? await prisma.item.findUnique({
+                          where: { id: item.size || "" },
+                          select: { size: true, id: true },
+                        })
+                      : null;
 
                     return {
                       ...inventoryData,

@@ -43,24 +43,23 @@ model Inventory {
 }
 
 model Item {
-  id                     String                @id @unique @default(uuid())
-  item_name              String
-  location               String
-  size                   String?
-  unit                   String?
-  receiptRef             String?
-  quantity               String?
-  expiryDate             DateTime?             @map("expiry_date")
-  price                  String?
-  amount                 String?
-  inventoryId            String?
-  inventory              Inventory[]
-  receipt                Receipt?              @relation(fields: [receiptId], references: [id])
-  receiptId              String?
-  IssuanceDetail         IssuanceDetail?       @relation(fields: [issuanceDetailId], references: [id])
-  issuanceDetailId       String?
-  transactionId          InventoryTransaction? @relation(fields: [inventoryTransactionId], references: [id])
-  inventoryTransactionId String?
+  id                   String                 @id @unique @default(uuid())
+  item_name            String
+  location             String
+  size                 String?
+  unit                 String?
+  receiptRef           String?
+  quantity             String?
+  expiryDate           DateTime?              @map("expiry_date")
+  price                String?
+  amount               String?
+  inventoryId          String?
+  inventory            Inventory[]
+  receipt              Receipt?               @relation(fields: [receiptId], references: [id])
+  receiptId            String?
+  IssuanceDetail       IssuanceDetail?        @relation(fields: [issuanceDetailId], references: [id])
+  issuanceDetailId     String?
+  InventoryTransaction InventoryTransaction[]
 
   @@map("items")
 }
@@ -183,7 +182,9 @@ model InventoryTransaction {
   issuanceId  String?
   size        String?
   date        DateTime        @default(now())
-  Item        Item[]
+  itemId      String?
+  amount      String?
+  item        Item?           @relation(fields: [itemId], references: [id])
 
   @@map("inventory_transactions")
 }
