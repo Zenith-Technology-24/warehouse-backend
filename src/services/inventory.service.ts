@@ -444,6 +444,53 @@ export class InventoryService {
 
       //
 
+      const newItems = await Promise.all(
+        items.map(async (item) => {
+          
+          const receiptItems = await prisma.inventoryTransaction.findMany({
+            where: {
+              itemId: item.id,
+              inventoryId: id,
+              type: "RECEIPT",
+            },
+          });
+
+          const issuedItems = await prisma.inventoryTransaction.findMany({
+            where: {
+              itemId: item.id,
+              inventoryId: id,
+              type: "ISSUANCE",
+              issuanceId: {
+                not: null
+              }
+            },
+          });
+
+          const totalReceiptItems = receiptItems.reduce(
+            (acc, item) => acc + parseInt(item.quantity || "0", 10),
+            0
+          );
+          const totalIssuedItems = issuedItems.reduce(
+            (acc, item) => acc + parseInt(item.quantity || "0", 10),
+            0
+          );
+
+          const totalIssuedItemsAmount = issuedItems.reduce(
+            (acc, item) => acc + parseFloat(item.amount || "0"),
+            0
+          );
+
+          return {
+            ...item,
+            totalReceiptItems,
+            totalIssuedItems,
+            quantity: `${totalIssuedItems} / ${totalReceiptItems}`,
+            is_consumed: totalIssuedItems >= totalReceiptItems,
+            amount: Number(item.amount) - totalIssuedItemsAmount,
+          };
+        })
+      );
+
       return {
         ...inventory,
         quantitySummary: {
@@ -457,7 +504,7 @@ export class InventoryService {
         issuance: issuance.filter((iss) => {
           return iss.status !== "withdrawn";
         }),
-        items: items.filter((item) => {
+        items: newItems.filter((item) => {
           return item.issuanceDetailId == null;
         }),
         receipt: undefined,
@@ -510,6 +557,7 @@ export class InventoryService {
             select: {
               quantity: true,
               status: true,
+              issuanceId: true,
             },
           },
         },

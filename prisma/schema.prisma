@@ -53,6 +53,7 @@ model Item {
   expiryDate           DateTime?              @map("expiry_date")
   price                String?
   amount               String?
+  refId                String?
   inventoryId          String?
   inventory            Inventory[]
   receipt              Receipt?               @relation(fields: [receiptId], references: [id])
