@@ -399,6 +399,11 @@ export class IssuanceService {
                     const currentReceipt = await tx.receipt.findFirst({
                       where: { issuanceDirective: inventoryItem.receiptRef },
                     });
+                    const currentItem = await tx.item.findFirst({
+                      where: { item_name: inventoryItem.name },
+                    });
+
+                    // Exclusively for the issuance render 
                     const createdItem = await tx.item.create({
                       data: {
                         item_name: inventoryItem?.name || "NO NAME",
@@ -424,7 +429,7 @@ export class IssuanceService {
                         issuanceId: updatedIssuance.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: createdItem.id,
+                        itemId: currentItem?.id || createdItem.id,
                         receiptId: currentReceipt?.id,
                       },
                     });
