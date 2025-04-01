@@ -54,7 +54,6 @@ model Item {
   price                String?
   amount               String?
   inventoryId          String?
-  refId                String?
   inventory            Inventory[]
   receipt              Receipt?               @relation(fields: [receiptId], references: [id])
   receiptId            String?

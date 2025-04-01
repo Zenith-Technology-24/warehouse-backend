@@ -198,7 +198,7 @@ export class IssuanceService {
                       receiptId: currentReceipt?.id,
                       size: inventoryItem?.size || "NO SIZE",
                       amount: String(inventoryItem?.amount) || "1",
-                      itemId: inventoryItem.itemId || item.id,
+                      itemId: item.id,
                     },
                   });
                 }
@@ -394,14 +394,13 @@ export class IssuanceService {
                     },
                   });
 
-                  if(!inventoryItem.itemId){
-                    throw new Error("Item ID is required");
-                  }
-
                   // If receipt reference is provided, create/update item information
                   if (inventoryItem.receiptRef) {
                     const currentReceipt = await tx.receipt.findFirst({
                       where: { issuanceDirective: inventoryItem.receiptRef },
+                    });
+                    const currentItem = await tx.item.findFirst({
+                      where: { item_name: inventoryItem.name },
                     });
 
                     // Exclusively for the issuance render 
@@ -418,11 +417,8 @@ export class IssuanceService {
                         receiptRef: inventoryItem.receiptRef,
                         inventoryId: existingInventory.id,
                         issuanceDetailId: issuanceDetail.id,
-                        refId: inventoryItem.itemId,
                       },
                     });
-
-                    
 
                     // Create inventory transaction record
                     await tx.inventoryTransaction.create({
@@ -433,7 +429,7 @@ export class IssuanceService {
                         issuanceId: updatedIssuance.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: inventoryItem?.itemId || createdItem.id,
+                        itemId: currentItem?.id || createdItem.id,
                         receiptId: currentReceipt?.id,
                       },
                     });

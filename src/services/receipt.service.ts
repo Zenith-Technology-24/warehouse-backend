@@ -41,8 +41,7 @@ export class ReceiptService {
   private async getCurrentReceipt(
     id: string,
     inventoryId: string,
-    itemId: string,
-    receiptRef: string
+    itemId: string
   ): Promise<CurrentReceipt | null> {
     try {
       const [receipts] = await Promise.all([
@@ -100,15 +99,13 @@ export class ReceiptService {
 
           const issuedItems = await prisma.inventoryTransaction.findMany({
             where: {
-              itemId,
+              inventoryId: inventoryId,
               type: "ISSUANCE",
               issuanceId: {
                 not: null
               }
             },
           });
-
-          console.log(issuedItems);
 
           if (receiptItems.length === 0) {
             return {
@@ -585,12 +582,11 @@ export class ReceiptService {
         receipt.item
           .filter((item) => item.issuanceDetailId === null)
           .map(async (item) => {
-            console.log(item.id);
+            console.log(item.receiptRef);
             const currentReceipt = await this.getCurrentReceipt(
               item.receiptId || "",
               item.inventoryId || "",
-              item.id,
-              item.receiptRef || ""
+              item.id
             );
 
             if (!currentReceipt?.data.length) {
