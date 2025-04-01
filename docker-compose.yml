@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres
+    container_name: warehouse_db
+    restart: always
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: $PG_DB
+      POSTGRES_USER: $PG_USER
+      POSTGRES_PASSWORD: $PG_PASSWORD
+    volumes:
+      - local_pgdata:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: warehouse_pgadmin
+    restart: always
+    ports:
+      - '8888:80'
+    environment:
+      PGADMIN_EMAIL: postgres@admin.com
+      PGADMIN_PASSWORD: postgres
+      PGADMIN_DEFAULT_EMAIL: postgres@admin.command
+      PGADMIN_DEFAULT_PASSWORD: postgres
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: warehouse_mailhog
+    restart: always
+    ports:
+      - '8025:8025' # MailHog web UI
+      - '1025:1025' # SMTP server
+
+volumes:
+  local_pgdata:
+  pgadmin-data:
