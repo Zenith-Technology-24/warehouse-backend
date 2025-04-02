@@ -186,7 +186,7 @@ export class IssuanceService {
                       receiptRef: inventoryItem.receiptRef,
                       inventoryId: inventoryItem.id,
                       issuanceDetailId: issuanceDetail.id,
-                      refId: inventoryItem.itemId,
+                      refId: inventoryItem.refId,
                     },
                   });
 
@@ -199,7 +199,7 @@ export class IssuanceService {
                       receiptId: currentReceipt?.id,
                       size: inventoryItem?.size || "NO SIZE",
                       amount: String(inventoryItem?.amount) || "1",
-                      itemId: inventoryItem.itemId || item.id,
+                      itemId: inventoryItem.refId || item.id,
                     },
                   });
                 }
@@ -395,7 +395,7 @@ export class IssuanceService {
                     },
                   });
 
-                  if(!inventoryItem.itemId){
+                  if(!inventoryItem.refId){
                     throw new Error("Item Reference ID is required");
                   }
 
@@ -419,7 +419,7 @@ export class IssuanceService {
                         receiptRef: inventoryItem.receiptRef,
                         inventoryId: existingInventory.id,
                         issuanceDetailId: issuanceDetail.id,
-                        refId: inventoryItem.itemId,
+                        refId: inventoryItem.refId,
                       },
                     });
 
@@ -434,7 +434,7 @@ export class IssuanceService {
                         issuanceId: updatedIssuance.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: inventoryItem?.itemId || createdItem.id,
+                        itemId: inventoryItem?.refId || createdItem.id,
                         receiptId: currentReceipt?.id,
                       },
                     });
@@ -779,7 +779,7 @@ export class IssuanceService {
                       price: String(item.price),
                       name: item.item_name,
                       amount: String(item.amount),
-                      itemId: item.itemId
+                      itemId: item.refId
                     };
                   });
 
