@@ -10,6 +10,7 @@ interface InventoryPayload {
   validity_date: Date;
   receiptRef?: string;
   itemId?: string;
+  refId?: string;
   item_name: string;
   location: string;
   size?: string;
@@ -185,7 +186,7 @@ export class IssuanceService {
                       receiptRef: inventoryItem.receiptRef,
                       inventoryId: inventoryItem.id,
                       issuanceDetailId: issuanceDetail.id,
-                      refId: inventoryItem.itemId,
+                      refId: inventoryItem.refId,
                     },
                   });
 
@@ -198,7 +199,7 @@ export class IssuanceService {
                       receiptId: currentReceipt?.id,
                       size: inventoryItem?.size || "NO SIZE",
                       amount: String(inventoryItem?.amount) || "1",
-                      itemId: inventoryItem.itemId || item.id,
+                      itemId: inventoryItem.refId || item.id,
                     },
                   });
                 }
@@ -394,8 +395,8 @@ export class IssuanceService {
                     },
                   });
 
-                  if(!inventoryItem.itemId){
-                    throw new Error("Item ID is required");
+                  if(!inventoryItem.refId){
+                    throw new Error("Item Reference ID is required");
                   }
 
                   // If receipt reference is provided, create/update item information
@@ -418,7 +419,7 @@ export class IssuanceService {
                         receiptRef: inventoryItem.receiptRef,
                         inventoryId: existingInventory.id,
                         issuanceDetailId: issuanceDetail.id,
-                        refId: inventoryItem.itemId,
+                        refId: inventoryItem.refId,
                       },
                     });
 
@@ -433,7 +434,7 @@ export class IssuanceService {
                         issuanceId: updatedIssuance.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: inventoryItem?.itemId || createdItem.id,
+                        itemId: inventoryItem?.refId || createdItem.id,
                         receiptId: currentReceipt?.id,
                       },
                     });
