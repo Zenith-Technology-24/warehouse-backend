@@ -7,7 +7,6 @@ const issuanceService = new IssuanceService();
 const inventoryService = new InventoryService();
 
 export const getIssuanceById = async (c: Context) => {
-  // Get user by id
   const id = c.req.param("id");
   return c.json(await issuanceService.getIssuanceById(id), 200);
 };
@@ -24,23 +23,57 @@ export const getIssuances = async (c: Context) => {
   );
 };
 
-export const createIssuance = async (c: Context & { user: User }) => {
-  // Create user
-  const data = await c.req.json();
+export const exportIssuance = async (c: Context) => {
+  const requestBody = await c.req.json();
+  const { start_date, end_date, search, status } = requestBody;
+  return c.json(
+    await issuanceService.export(
+      start_date ?? "", 
+      end_date ?? "", 
+      status,
+      search ?? ""
+    ), 200
+  );
+}
 
-  // get authentication user
-  const user = c.user;
-
-  return c.json(await issuanceService.createIssuance(data, user), 201);
+export const fetchReceiptsForIssuance = async (c: Context) => {
+  return c.json(await issuanceService.getReceipts(), 200);
 };
 
-export const updateIssuance = async (c: Context) => {
-  // Update user
+export const createIssuance = async (c: Context & { user: User }) => {
+  const data = await c.req.json();
+
+  const user = c.user;
+  return c.json(await issuanceService.create(data, user), 201);
+};
+
+export const updateIssuance = async (c: Context & { user: User }) => {
   const id = c.req.param("id");
   const data = await c.req.json();
-  return c.json(await issuanceService.updateIssuance(id, data), 201);
+  const user = c.user;
+  return c.json(await issuanceService.update(id, data, user), 201);
 };
 
 export const getInventoryIssuance = async (c: Context) => {
-  return c.json(await inventoryService.inventoryIssuance(), 200);
+  return c.json(await inventoryService.issuanceInventories(), 200);
+};
+
+export const withdrawIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.withdrawIssuance(id), 200);
+}
+
+export const withdrawAllIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.withdrawAllIssuance(id), 200);
+}
+
+export const archiveIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.archiveIssuance(id), 200);
+}
+
+export const unArchiveIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.unArchiveIssuance(id), 200);
 }

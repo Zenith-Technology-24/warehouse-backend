@@ -1,30 +1,39 @@
 import {
   archiveInventory,
   createInventory,
+  createItemType,
+  deleteItem,
+  exportInventory,
   getInventories,
   getInventoryById,
+  getItemTypes,
   unarchiveInventory,
   updateInventory,
 } from "@/handler/inventory.handler";
+import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
 import { authMiddleware } from "@/middleware/auth.middleware";
-import {
-  ArchiveInventoryRoute,
-  InventoryCreateRoute,
-  InventoryGetByRoute,
-  InventoryRoute,
-  InventoryUpdateRoute,
-  UnArchiveInventory,
-} from "@/schema/z-routes/inventory.z";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const inventory = new OpenAPIHono();
 
 inventory.use(authMiddleware as never);
-inventory.openapi(InventoryRoute, getInventories as never);
-inventory.openapi(InventoryGetByRoute, getInventoryById as never);
-inventory.openapi(InventoryCreateRoute, createInventory as never);
-inventory.openapi(InventoryUpdateRoute, updateInventory as never);
-inventory.openapi(ArchiveInventoryRoute, archiveInventory as never);
-inventory.openapi(UnArchiveInventory, unarchiveInventory as never);
+inventory.use(activityLogMiddleware as never);
+inventory.post('/type', createItemType);
+inventory.get('/type', getItemTypes)
+
+inventory.get('/', getInventories as never);
+inventory.get('/item/delete/:id', deleteItem as never);
+inventory.get('/:id', getInventoryById as never);
+
+
+
+inventory.post('/type', createItemType as never);
+inventory.post('/', createInventory as never);
+inventory.post('/export', exportInventory as never)
+
+
+inventory.put('/archive/:id', archiveInventory);
+inventory.put('/item/update/:id', updateInventory as never);
+inventory.put('/unarchive/:id', unarchiveInventory);
 
 export default inventory;

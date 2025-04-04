@@ -3,7 +3,7 @@ import { Next, Context } from "hono";
 
 type RoleOptions = {
   roles: string[];
-  all?: boolean; // If true, user must have all specified roles
+  all?: boolean; 
 };
 
 export const roleMiddleware = (options: RoleOptions) => {
@@ -11,7 +11,7 @@ export const roleMiddleware = (options: RoleOptions) => {
     c: Context & { user: Partial<User> & { roles: Role[] } },
     next: Next
   ) => {
-    // get the role from the authorization header
+    
     const user = c.user;
 
     if (!user) {

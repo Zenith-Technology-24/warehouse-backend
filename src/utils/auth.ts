@@ -10,11 +10,11 @@ const authService = new AuthService();
 export const jwtSign = async (user: User & {roles: Role[]}): Promise<string | null> => {
   const payload = {
     sub: user.id,
-    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 1day Expiry
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, 
     roles: user.roles.map((role) => role.name)
   };
   
-  // Delete existing token first
+  
   await prisma.token.deleteMany({
     where: {
       userId: user.id

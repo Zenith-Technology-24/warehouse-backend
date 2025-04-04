@@ -9,12 +9,12 @@ const statusTable: { [key in "active" | "deactivated"]: string } = {
   deactivated: "inactive",
 };
 export class UserService {
-  // Get user by id
+  
   async getUserById(
     id: string
   ): Promise<Omit<User, "password"> & { roles: Role[] }> {
     const user = await prisma.user.findFirst({
-      // Get user by username, email or id
+      
       where: {
         OR: [
           {
@@ -120,10 +120,10 @@ export class UserService {
         throw new Error("Password and confirm password do not match");
       }
 
-      // Hash the password
+      
       data.password = await argon2.hash(data.password);
 
-      // remove confirm_password from the data object
+      
       const newData = {
         ...data,
         confirm_password: undefined,
@@ -175,7 +175,7 @@ export class UserService {
     }
 
     if (data.password && data.password !== "") {
-      // Hash the password
+      
       if (data.password !== data.confirm_password) {
         throw new Error("Password and confirm password do not match");
       }
