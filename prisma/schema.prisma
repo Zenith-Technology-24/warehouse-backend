@@ -103,6 +103,21 @@ model Issuance {
   @@map("issuances")
 }
 
+model ReturnedItems {
+  id                  String        @id @unique @default(uuid())
+  itemName            String?       
+  date                String?
+  time                String?
+  personnel           String
+  notes               String
+  size                String?
+  receiptRef          String
+  created_at          DateTime      @default(now())
+  updated_at          DateTime      @updatedAt
+
+  @@map("returnedItems")
+}
+
 model IssuanceDetail {
   id        String        @id @unique @default(uuid())
   quantity  String        @default("1")
