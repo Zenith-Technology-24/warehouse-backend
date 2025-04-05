@@ -1,3 +1,4 @@
+import { ReturnedItemStatus } from '@prisma/client';
 import { createReturnedItems } from './../handler/returned-items.handler';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/generic/prisma";
@@ -15,6 +16,7 @@ export class ReturnedItemsService {
         page: number = 1,
         pageSize: number = 10,
         search?: string,
+        status?: string
     ): Promise<ReturnedItemsResponseType> {
         try {
             const skip = (page - 1) * pageSize;
@@ -27,9 +29,11 @@ export class ReturnedItemsService {
                 }
                 : {};
 
+            const statusFilter = status === "all" ? undefined : status;
+
             const [returnedItems, total] = await Promise.all([
                 prisma.returnedItems.findMany({
-                    where: { ...where } as never,
+                    where: { ...where, status: statusFilter as ReturnedItemStatus } as never,
                     skip,
                     take: pageSize,
                     orderBy: {
@@ -60,5 +64,24 @@ export class ReturnedItemsService {
         } catch (error: any) {
             throw new Error(`Failed to create returned items: ${error.message}`);
         }
+    }
+
+    async update(id: string, data: any) {
+        return await prisma.returnedItems.update({
+            where: {
+                id,
+            },
+            data: {
+                ...data,
+            },
+        });
+    }
+
+    async findOne(id: string) {
+        return await prisma.returnedItems.findUnique({
+            where: {
+                id
+            }
+        })
     }
 }
