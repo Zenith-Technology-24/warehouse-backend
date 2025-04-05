@@ -104,16 +104,17 @@ model Issuance {
 }
 
 model ReturnedItems {
-  id                  String        @id @unique @default(uuid())
+  id                  String             @id @unique @default(uuid())
   itemName            String?       
   date                String?
   time                String?
   personnel           String
   notes               String
+  status              ReturnedItemStatus @default(active)
   size                String?
   receiptRef          String
-  created_at          DateTime      @default(now())
-  updated_at          DateTime      @updatedAt
+  created_at          DateTime           @default(now())
+  updated_at          DateTime           @updatedAt
 
   @@map("returnedItems")
 }
@@ -225,6 +226,11 @@ model Token {
 enum UserStatus {
   active
   inactive
+}
+
+enum ReturnedItemStatus {
+  active
+  archived
 }
 
 enum ProductStatus {
