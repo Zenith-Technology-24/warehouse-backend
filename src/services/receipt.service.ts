@@ -589,7 +589,6 @@ export class ReceiptService {
               item.receiptId || "",
               item.inventoryId || "",
               item.id,
-              item.receiptRef || ""
             );
 
             if (!currentReceipt?.data.length) {
