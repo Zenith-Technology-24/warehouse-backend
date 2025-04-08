@@ -1,6 +1,7 @@
 import { issuances, Prisma, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
 import { InventoryService } from "./inventory.service";
+import { ReceiptService } from "./receipt.service";
 
 interface InventoryPayload {
   id?: string;
@@ -195,10 +196,11 @@ export class IssuanceService {
                       inventoryId: inventoryItem.id,
                       quantity: String(inventoryItem.quantity),
                       type: "ISSUANCE",
-                      issuanceId: issuance.id,
+                      issuanceId: issuanceDetail.id,
                       receiptId: currentReceipt?.id,
                       size: inventoryItem?.size || "NO SIZE",
                       amount: String(inventoryItem?.amount) || "1",
+                      price: String(inventoryItem?.price) || "1",
                       itemId: inventoryItem.refId || item.id,
                     },
                   });
@@ -395,7 +397,7 @@ export class IssuanceService {
                     },
                   });
 
-                  if(!inventoryItem.refId){
+                  if (!inventoryItem.refId) {
                     throw new Error("Item Reference ID is required");
                   }
 
@@ -405,7 +407,7 @@ export class IssuanceService {
                       where: { issuanceDirective: inventoryItem.receiptRef },
                     });
 
-                    // Exclusively for the issuance render 
+                    // Exclusively for the issuance render
                     const createdItem = await tx.item.create({
                       data: {
                         item_name: inventoryItem?.name || "NO NAME",
@@ -423,18 +425,17 @@ export class IssuanceService {
                       },
                     });
 
-                    
-
                     // Create inventory transaction record
                     await tx.inventoryTransaction.create({
                       data: {
                         inventoryId: inventoryItem.id,
                         quantity: String(inventoryItem.quantity),
                         type: "ISSUANCE",
-                        issuanceId: updatedIssuance.id,
+                        issuanceId: issuanceDetail.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
                         itemId: inventoryItem?.refId || createdItem.id,
+                        price: String(inventoryItem?.price) || "1",
                         receiptId: currentReceipt?.id,
                       },
                     });
@@ -779,7 +780,7 @@ export class IssuanceService {
                       price: String(item.price),
                       name: item.item_name,
                       amount: String(item.amount),
-                      itemId: item.refId
+                      itemId: item.refId,
                     };
                   });
 
@@ -812,29 +813,41 @@ export class IssuanceService {
       },
     });
 
+    const receiptService = new ReceiptService();
+
     const response: any = [];
 
     for (let i = 0; i < receipts.length; i++) {
-      (async () => {
-        const receipt = receipts[i];
-        const items = receipt.item;
+      const receipt = receipts[i];
+      const items = receipt.item;
+      const newItems = [];
 
-        response.push({
-          id: receipt.id,
-          receipt: receipt.issuanceDirective,
-          items: items.map((item) => {
-            return {
-              id: item.id,
-              inventoryId: item.inventoryId,
-              unit: item.unit,
-              max_quantity: item.quantity,
-              size: item.size,
-              price: item.price,
-              name: item.item_name,
-            };
-          }),
-        });
-      })();
+      for (let j = 0; j < items.length; j++) {
+        const item = items[j];
+
+        const receiptData = await receiptService.getCurrentReceipt(
+          receipt.id,
+          item.inventoryId || "",
+          item.id
+        );
+
+        //@ts-expect-error skip for now kay kapoy
+        if (receiptData?.data[0].is_consumed) {
+          continue;
+        }
+
+        newItems.push(item);
+      }
+
+      if (!newItems.length) {
+        continue;
+      }
+
+      response.push({
+        id: receipt.id,
+        receipt: receipt.issuanceDirective,
+        items: newItems,
+      });
     }
 
     return response;
