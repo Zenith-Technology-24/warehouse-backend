@@ -1,4 +1,4 @@
-import { issuances, Prisma, ProductStatus, User } from "@prisma/client";
+import { Issuance, Prisma, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
 import { InventoryService } from "./inventory.service";
 import { ReceiptService } from "./receipt.service";
@@ -47,7 +47,7 @@ export interface IssuanceResponseType {
 const inventoryService = new InventoryService();
 
 export class IssuanceService {
-  async create(data: CreateIssuanceDto, user: User): Promise<issuances> {
+  async create(data: CreateIssuanceDto, user: User) {
     try {
       const issuance = await prisma.$transaction(async (tx) => {
         // 1. Create the main issuance record
@@ -249,7 +249,7 @@ export class IssuanceService {
     id: string,
     data: CreateIssuanceDto,
     user: User
-  ): Promise<issuances> {
+  ) {
     try {
       const issuance = await prisma.$transaction(
         async (tx) => {
@@ -674,7 +674,7 @@ export class IssuanceService {
     }
   }
 
-  async getIssuanceById(id: string): Promise<issuances> {
+  async getIssuanceById(id: string) {
     try {
       const issuance = await prisma.issuance.findUnique({
         where: { id },
