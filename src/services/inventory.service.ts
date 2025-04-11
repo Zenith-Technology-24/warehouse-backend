@@ -537,11 +537,12 @@ export class InventoryService {
     page: number = 1,
     pageSize: number = 10,
     search?: string,
-    status?: string
+    status?: string,
+    filter?: string
   ): Promise<InventoryResponseType> {
     try {
       const skip = (page - 1) * pageSize;
-
+      
       const where = search
         ? {
             OR: [
@@ -678,8 +679,14 @@ export class InventoryService {
         };
       });
 
+      let filteredInventories = null
+
+      filter !== '' 
+        ? filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
+        : filteredInventories = processedInventories 
+
       return {
-        data: processedInventories.filter((inv) => inv.receipts.length > 0),
+        data: filteredInventories.filter((inv) => inv.receipts.length > 0),
         total: totalCount,
         currentPage: page,
         totalPages: Math.ceil(totalCount / pageSize),
