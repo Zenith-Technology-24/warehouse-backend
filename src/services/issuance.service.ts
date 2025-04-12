@@ -2,6 +2,7 @@ import { issuances, Prisma, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
 import { InventoryService } from "./inventory.service";
 import { ReceiptService } from "./receipt.service";
+import { NotificationService } from "./notification.service";
 
 interface InventoryPayload {
   id?: string;
@@ -45,6 +46,7 @@ export interface IssuanceResponseType {
 }
 
 const inventoryService = new InventoryService();
+const notificationService = new NotificationService();
 
 export class IssuanceService {
   async create(data: CreateIssuanceDto, user: User): Promise<issuances> {
@@ -142,8 +144,8 @@ export class IssuanceService {
                     },
                     endUser: createdEndUser
                       ? {
-                          connect: { id: createdEndUser.id },
-                        }
+                        connect: { id: createdEndUser.id },
+                      }
                       : undefined,
                   },
                 });
@@ -391,8 +393,8 @@ export class IssuanceService {
                       },
                       endUser: createdEndUser
                         ? {
-                            connect: { id: createdEndUser.id },
-                          }
+                          connect: { id: createdEndUser.id },
+                        }
                         : undefined,
                     },
                   });
@@ -517,10 +519,10 @@ export class IssuanceService {
 
       const where = search
         ? {
-            OR: [
-              { issuanceDirective: { contains: search, mode: "insensitive" } },
-            ],
-          }
+          OR: [
+            { issuanceDirective: { contains: search, mode: "insensitive" } },
+          ],
+        }
         : {};
 
       const statusFilter = status === "all" ? undefined : status;
@@ -606,12 +608,12 @@ export class IssuanceService {
         },
         ...(search
           ? {
-              OR: [
-                {
-                  issuanceDirective: { contains: search, mode: "insensitive" },
-                },
-              ],
-            }
+            OR: [
+              {
+                issuanceDirective: { contains: search, mode: "insensitive" },
+              },
+            ],
+          }
           : {}),
       };
 
@@ -761,9 +763,9 @@ export class IssuanceService {
                       );
                     const itemSize = isUuid(item.size || "")
                       ? await prisma.item.findUnique({
-                          where: { id: item.size || "" },
-                          select: { size: true, id: true },
-                        })
+                        where: { id: item.size || "" },
+                        select: { size: true, id: true },
+                      })
                       : null;
 
                     return {
@@ -853,7 +855,7 @@ export class IssuanceService {
     return response;
   }
 
-  async withdrawIssuance(id: string) {
+  async withdrawIssuance(id: string, inventoryId: string) {
     const issuance = await prisma.issuanceDetail.update({
       where: { id },
       data: {
@@ -878,6 +880,17 @@ export class IssuanceService {
           issuanceStatus: "withdrawn",
         },
       });
+    }
+
+    // GIL
+    const inventory = await inventoryService.getInventoryById(inventoryId);
+
+    if (inventory?.quantitySummary?.totalQuantity <= 5) {
+      await notificationService?.createLowStockNotification({
+        name: inventory?.name,
+        size: inventory?.quantitySummary?.totalQuantity,
+        dataId: inventory?.id
+      })
     }
 
     return issuance;
