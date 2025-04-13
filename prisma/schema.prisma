@@ -53,6 +53,7 @@ model Item {
   expiryDate           DateTime?              @map("expiry_date")
   price                String?
   amount               String?
+  refId                String?
   inventoryId          String?
   inventory            Inventory[]
   receipt              Receipt?               @relation(fields: [receiptId], references: [id])
@@ -117,6 +118,21 @@ model ReturnedItems {
   updated_at          DateTime           @updatedAt
 
   @@map("returnedItems")
+}
+
+
+model Notifications {
+  id         String   @id @unique @default(uuid())
+  dataId     String?
+  title      String?
+  message    String?
+  userId     String
+  read       Boolean  @default(false)
+  user       User     @relation(fields: [userId], references: [id])
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("notifications")
 }
 
 model IssuanceDetail {
@@ -184,6 +200,7 @@ model User {
   Issuance              Issuance[]
   Receipt               Receipt[]
   performedActivityLogs ActivityLog[] @relation("performedByRelation")
+  notifications         Notifications[]
 
   @@map("user")
 }
@@ -199,6 +216,7 @@ model InventoryTransaction {
   size        String?
   date        DateTime        @default(now())
   itemId      String?
+  price       String?
   amount      String?
   receiptRef  String?
   item        Item?           @relation(fields: [itemId], references: [id])

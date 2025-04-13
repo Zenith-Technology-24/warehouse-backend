@@ -10,6 +10,7 @@ import { Context } from "vm";
 import receipt from "./receipt.route";
 import activityLog from "./activity-log.route";
 import returnedItems from "./returned-items.route";
+import notification from "./notification.route";
 
 const errorHandler = async (err: Error, c: Context) => {
   console.error('Error:', err);
@@ -47,7 +48,6 @@ const errorHandler = async (err: Error, c: Context) => {
     }
   }
 
-
   return c.json({
     message: err.message || 'Something went wrong',
     status: 500,
@@ -63,6 +63,7 @@ export const routes = (app: OpenAPIHono) => {
   app.route("/api/issuance", issuance);
   app.route("/api/end-user", endUser);
   app.route("/api/receipt", receipt);
-  app.route("/api/activity-log", activityLog)
-  app.route("/api/returned-items", returnedItems)
+  app.route("/api/activity-log", activityLog);
+  app.route("/api/returned-items", returnedItems);
+  app.route("/api/notification", notification);
 };

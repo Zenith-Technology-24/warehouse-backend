@@ -1,7 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { issuances, Prisma, ProductStatus, User } from "@prisma/client";
+import { Issuance, Prisma, ProductStatus, User } from "@prisma/client";
 import prisma from "@/generic/prisma";
 import { InventoryService } from "./inventory.service";
+import { ReceiptService } from "./receipt.service";
+import { NotificationService } from "./notification.service";
 
 interface InventoryPayload {
   id?: string;
@@ -11,6 +12,7 @@ interface InventoryPayload {
   validity_date: Date;
   receiptRef?: string;
   itemId?: string;
+  refId?: string;
   item_name: string;
   location: string;
   size?: string;
@@ -44,9 +46,10 @@ export interface IssuanceResponseType {
 }
 
 const inventoryService = new InventoryService();
+const notificationService = new NotificationService();
 
 export class IssuanceService {
-  async create(data: CreateIssuanceDto, user: User): Promise<issuances> {
+  async create(data: CreateIssuanceDto, user: User) {
     try {
       const issuance = await prisma.$transaction(async (tx) => {
         // 1. Create the main issuance record
@@ -141,8 +144,8 @@ export class IssuanceService {
                     },
                     endUser: createdEndUser
                       ? {
-                          connect: { id: createdEndUser.id },
-                        }
+                        connect: { id: createdEndUser.id },
+                      }
                       : undefined,
                   },
                 });
@@ -186,6 +189,7 @@ export class IssuanceService {
                       receiptRef: inventoryItem.receiptRef,
                       inventoryId: inventoryItem.id,
                       issuanceDetailId: issuanceDetail.id,
+                      refId: inventoryItem.refId,
                     },
                   });
 
@@ -194,11 +198,12 @@ export class IssuanceService {
                       inventoryId: inventoryItem.id,
                       quantity: String(inventoryItem.quantity),
                       type: "ISSUANCE",
-                      issuanceId: issuance.id,
+                      issuanceId: issuanceDetail.id,
                       receiptId: currentReceipt?.id,
                       size: inventoryItem?.size || "NO SIZE",
                       amount: String(inventoryItem?.amount) || "1",
-                      itemId: item.id,
+                      price: String(inventoryItem?.price) || "1",
+                      itemId: inventoryItem.refId || item.id,
                     },
                   });
                 }
@@ -246,7 +251,7 @@ export class IssuanceService {
     id: string,
     data: CreateIssuanceDto,
     user: User
-  ): Promise<issuances> {
+  ) {
     try {
       const issuance = await prisma.$transaction(
         async (tx) => {
@@ -388,22 +393,23 @@ export class IssuanceService {
                       },
                       endUser: createdEndUser
                         ? {
-                            connect: { id: createdEndUser.id },
-                          }
+                          connect: { id: createdEndUser.id },
+                        }
                         : undefined,
                     },
                   });
+
+                  if (!inventoryItem.refId) {
+                    throw new Error("Item Reference ID is required");
+                  }
 
                   // If receipt reference is provided, create/update item information
                   if (inventoryItem.receiptRef) {
                     const currentReceipt = await tx.receipt.findFirst({
                       where: { issuanceDirective: inventoryItem.receiptRef },
                     });
-                    const currentItem = await tx.item.findFirst({
-                      where: { item_name: inventoryItem.name },
-                    });
 
-                    // Exclusively for the issuance render 
+                    // Exclusively for the issuance render
                     const createdItem = await tx.item.create({
                       data: {
                         item_name: inventoryItem?.name || "NO NAME",
@@ -417,6 +423,7 @@ export class IssuanceService {
                         receiptRef: inventoryItem.receiptRef,
                         inventoryId: existingInventory.id,
                         issuanceDetailId: issuanceDetail.id,
+                        refId: inventoryItem.refId,
                       },
                     });
 
@@ -426,10 +433,11 @@ export class IssuanceService {
                         inventoryId: inventoryItem.id,
                         quantity: String(inventoryItem.quantity),
                         type: "ISSUANCE",
-                        issuanceId: updatedIssuance.id,
+                        issuanceId: issuanceDetail.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: currentItem?.id || createdItem.id,
+                        itemId: inventoryItem?.refId || createdItem.id,
+                        price: String(inventoryItem?.price) || "1",
                         receiptId: currentReceipt?.id,
                       },
                     });
@@ -511,10 +519,10 @@ export class IssuanceService {
 
       const where = search
         ? {
-            OR: [
-              { issuanceDirective: { contains: search, mode: "insensitive" } },
-            ],
-          }
+          OR: [
+            { issuanceDirective: { contains: search, mode: "insensitive" } },
+          ],
+        }
         : {};
 
       const statusFilter = status === "all" ? undefined : status;
@@ -600,12 +608,12 @@ export class IssuanceService {
         },
         ...(search
           ? {
-              OR: [
-                {
-                  issuanceDirective: { contains: search, mode: "insensitive" },
-                },
-              ],
-            }
+            OR: [
+              {
+                issuanceDirective: { contains: search, mode: "insensitive" },
+              },
+            ],
+          }
           : {}),
       };
 
@@ -668,7 +676,7 @@ export class IssuanceService {
     }
   }
 
-  async getIssuanceById(id: string): Promise<issuances> {
+  async getIssuanceById(id: string) {
     try {
       const issuance = await prisma.issuance.findUnique({
         where: { id },
@@ -755,9 +763,9 @@ export class IssuanceService {
                       );
                     const itemSize = isUuid(item.size || "")
                       ? await prisma.item.findUnique({
-                          where: { id: item.size || "" },
-                          select: { size: true, id: true },
-                        })
+                        where: { id: item.size || "" },
+                        select: { size: true, id: true },
+                      })
                       : null;
 
                     return {
@@ -774,6 +782,7 @@ export class IssuanceService {
                       price: String(item.price),
                       name: item.item_name,
                       amount: String(item.amount),
+                      itemId: item.refId,
                     };
                   });
 
@@ -799,42 +808,54 @@ export class IssuanceService {
     }
   }
 
-  async getReceipts() {
+  async getReceipts(fetch = 'some') {
     const receipts = await prisma.receipt.findMany({
       include: {
         item: true,
       },
     });
 
+    const receiptService = new ReceiptService();
+
     const response: any = [];
 
     for (let i = 0; i < receipts.length; i++) {
-      (async () => {
-        const receipt = receipts[i];
-        const items = receipt.item;
+      const receipt = receipts[i];
+      const items = receipt.item;
+      const newItems = [];
 
-        response.push({
-          id: receipt.id,
-          receipt: receipt.issuanceDirective,
-          items: items.map((item) => {
-            return {
-              id: item.id,
-              inventoryId: item.inventoryId,
-              unit: item.unit,
-              max_quantity: item.quantity,
-              size: item.size,
-              price: item.price,
-              name: item.item_name,
-            };
-          }),
-        });
-      })();
+      for (let j = 0; j < items.length; j++) {
+        const item = items[j];
+
+        const receiptData = await receiptService.getCurrentReceipt(
+          receipt.id,
+          item.inventoryId || "",
+          item.id
+        );
+
+        //@ts-expect-error skip for now kay kapoy
+        if (receiptData?.data[0].is_consumed && fetch === 'some') {
+          continue;
+        }
+
+        newItems.push(item);
+      }
+
+      if (!newItems.length) {
+        continue;
+      }
+
+      response.push({
+        id: receipt.id,
+        receipt: receipt.issuanceDirective,
+        items: newItems,
+      });
     }
 
     return response;
   }
 
-  async withdrawIssuance(id: string) {
+  async withdrawIssuance(id: string, inventoryId: string) {
     const issuance = await prisma.issuanceDetail.update({
       where: { id },
       data: {
@@ -859,6 +880,17 @@ export class IssuanceService {
           issuanceStatus: "withdrawn",
         },
       });
+    }
+
+    // GIL
+    const inventory = await inventoryService.getInventoryById(inventoryId);
+
+    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+      await notificationService.createLowStockNotification({
+        name: inventory?.name,
+        size: inventory?.quantitySummary?.totalQuantity,
+        dataId: inventory?.id
+      })
     }
 
     return issuance;

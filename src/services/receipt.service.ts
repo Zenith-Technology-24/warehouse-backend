@@ -38,10 +38,10 @@ interface CreateReceiptDto {
   inventory?: InventoryPayload[];
 }
 export class ReceiptService {
-  private async getCurrentReceipt(
+  public async getCurrentReceipt(
     id: string,
     inventoryId: string,
-    itemId: string
+    itemId: string,
   ): Promise<CurrentReceipt | null> {
     try {
       const [receipts] = await Promise.all([
@@ -99,11 +99,20 @@ export class ReceiptService {
 
           const issuedItems = await prisma.inventoryTransaction.findMany({
             where: {
-              inventoryId: inventoryId,
+              itemId,
               type: "ISSUANCE",
               issuanceId: {
                 not: null
               }
+            },
+          });
+
+          const issuances = await prisma.issuanceDetail.findMany({
+            where: {
+              id: {
+                in: issuedItems.map((item) => item.issuanceId) as string[],
+              },
+              status: "withdrawn",
             },
           });
 
@@ -118,43 +127,18 @@ export class ReceiptService {
           }
 
           const totalReceiptQuantity = receiptItems.reduce((acc, item) => {
-            return Number(item.quantity || "0");
+            return acc + Number(item.quantity || "0");
           }, 0);
 
-          const totalIssuedQuantity = issuedItems.reduce((acc, item) => {
-            return Number(item.quantity || "0");
+          const totalIssuedQuantity = issuances.reduce((acc, item) => {
+
+            return acc + Number(item.quantity || "0");
           }, 0);
 
           const remainingQuantity = Math.max(
             0,
             totalReceiptQuantity - totalIssuedQuantity
           );
-
-          if (issuedItems.length > 0) {
-            const issuanceDetailMap = new Map();
-
-            issuedItems.forEach((item) => {
-              if (item.issuanceId) {
-                if (!issuanceDetailMap.has(item.issuanceId)) {
-                  issuanceDetailMap.set(item.issuanceId, {
-                    totalQuantity: 0,
-                  });
-                }
-
-                const entry = issuanceDetailMap.get(item.issuanceId);
-                entry.totalQuantity += Number(item.quantity || "0");
-              }
-            });
-
-            for (const [detailId, info] of issuanceDetailMap.entries()) {
-              if (info.detail && info.totalQuantity >= totalReceiptQuantity) {
-                await prisma.issuanceDetail.update({
-                  where: { id: detailId },
-                  data: { status: "withdrawn" },
-                });
-              }
-            }
-          }
 
           return {
             ...receipt,
@@ -582,11 +566,11 @@ export class ReceiptService {
         receipt.item
           .filter((item) => item.issuanceDetailId === null)
           .map(async (item) => {
-            console.log(item.receiptRef);
+            console.log(item.id);
             const currentReceipt = await this.getCurrentReceipt(
               item.receiptId || "",
               item.inventoryId || "",
-              item.id
+              item.id,
             );
 
             if (!currentReceipt?.data.length) {
@@ -707,6 +691,7 @@ export class ReceiptService {
               issuanceDetailId: {
                 not: null,
               },
+              
             },
             include: {
               IssuanceDetail: true,
@@ -727,7 +712,9 @@ export class ReceiptService {
             return acc + Number(item.quantity || "0");
           }, 0);
 
-          const totalIssuedQuantity = issuedItems.reduce((acc, item) => {
+          const totalIssuedQuantity = issuedItems.filter(item => {
+            return item.IssuanceDetail?.status === "withdrawn";
+          }).reduce((acc, item) => {
             return acc + Number(item.quantity || "0");
           }, 0);
 

@@ -444,6 +444,70 @@ export class InventoryService {
 
       //
 
+      const newItems = await Promise.all(
+        items.map(async (item) => {
+          const receiptItems = await prisma.inventoryTransaction.findMany({
+            where: {
+              itemId: item.id,
+              inventoryId: id,
+              type: "RECEIPT",
+            },
+          });
+
+          const issuanceDetails = [];
+
+          const issuedItems = await prisma.inventoryTransaction.findMany({
+            where: {
+              itemId: item.id,
+              inventoryId: id,
+              type: "ISSUANCE",
+              issuanceId: {
+                not: null,
+              },
+            },
+          });
+
+          for(let i = 0; i < issuedItems.length; i++) {
+            const issuedItem = issuedItems[i];
+            const issuanceDetail = await prisma.issuanceDetail.findUnique({
+              where: {
+                id: issuedItem.issuanceId || "",
+                status: {
+                  not: "pending",
+                }
+              },
+            });
+
+            if (issuanceDetail) {
+              issuanceDetails.push({...issuedItem, ...issuanceDetail});
+            }
+          }
+
+          const totalReceiptItems = receiptItems.reduce(
+            (acc, item) => acc + parseInt(item.quantity || "0", 10),
+            0
+          );
+          const totalIssuedItems = issuanceDetails.reduce(
+            (acc, item) => acc + parseInt(item.quantity || "0", 10),
+            0
+          );
+
+          const totalIssuedItemsAmount = issuanceDetails.reduce(
+            (acc, item) => acc + parseFloat(item.amount || "0"),
+            0
+          );
+
+          return {
+            ...item,
+            totalReceiptItems,
+            totalIssuedItems,
+            quantity: `${totalIssuedItems} / ${totalReceiptItems}`,
+            is_consumed: totalIssuedItems >= totalReceiptItems,
+            amount: Number(item.amount) - totalIssuedItemsAmount,
+          };
+        })
+      );
+
       return {
         ...inventory,
         quantitySummary: {
@@ -457,8 +521,10 @@ export class InventoryService {
         issuance: issuance.filter((iss) => {
           return iss.status !== "withdrawn";
         }),
-        items: items.filter((item) => {
+        items: newItems.filter((item) => {
           return item.issuanceDetailId == null;
+        }).filter((item) => {
+          return !item.is_consumed;
         }),
         receipt: undefined,
       };
@@ -511,6 +577,7 @@ export class InventoryService {
             select: {
               quantity: true,
               status: true,
+              issuanceId: true,
             },
           },
         },
@@ -542,19 +609,21 @@ export class InventoryService {
 
         // Process receipts
         inventory.receipts.forEach((receipt) => {
-          receipt.item.filter(i => i.issuanceDetailId === null).forEach((item) => {
-            if (item.inventoryId === inventory.id) {
-              const quantity = parseInt(item.quantity || "0", 10);
-              currentPrice = parseFloat(item.price || "0");
-              if (receipt.status === "pending") {
-                pendingQuantity += quantity;
-              } else {
-                totalQuantity += quantity;
-                availableQuantity += quantity;
-                grandTotalAmount += quantity * currentPrice;
+          receipt.item
+            .filter((i) => i.issuanceDetailId === null)
+            .forEach((item) => {
+              if (item.inventoryId === inventory.id) {
+                const quantity = parseInt(item.quantity || "0", 10);
+                currentPrice = parseFloat(item.price || "0");
+                if (receipt.status === "pending") {
+                  pendingQuantity += quantity;
+                } else {
+                  totalQuantity += quantity;
+                  availableQuantity += quantity;
+                  grandTotalAmount += quantity * currentPrice;
+                }
               }
-            }
-          });
+            });
         });
 
         inventory.issuanceDetails.forEach((detail) => {
