@@ -14,6 +14,9 @@ export class NotificationService {
         return await prisma.notifications.findMany({
             where: {
                 userId
+            },
+            orderBy: {
+                created_at: 'desc'
             }
         })
     }
