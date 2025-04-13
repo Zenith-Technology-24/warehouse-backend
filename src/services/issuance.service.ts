@@ -808,7 +808,7 @@ export class IssuanceService {
     }
   }
 
-  async getReceipts(fetch = 'all') {
+  async getReceipts(fetch = 'some') {
     const receipts = await prisma.receipt.findMany({
       include: {
         item: true,
@@ -834,7 +834,7 @@ export class IssuanceService {
         );
 
         //@ts-expect-error skip for now kay kapoy
-        if (receiptData?.data[0].is_consumed && fetch !== 'all') {
+        if (receiptData?.data[0].is_consumed && fetch === 'some') {
           continue;
         }
 
