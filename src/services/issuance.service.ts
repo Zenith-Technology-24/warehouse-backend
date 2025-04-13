@@ -885,8 +885,8 @@ export class IssuanceService {
     // GIL
     const inventory = await inventoryService.getInventoryById(inventoryId);
 
-    if (inventory?.quantitySummary?.totalQuantity <= 5) {
-      await notificationService?.createLowStockNotification({
+    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+      await notificationService.createLowStockNotification({
         name: inventory?.name,
         size: inventory?.quantitySummary?.totalQuantity,
         dataId: inventory?.id
