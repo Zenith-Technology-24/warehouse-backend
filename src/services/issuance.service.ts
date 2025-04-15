@@ -832,6 +832,10 @@ export class IssuanceService {
           item.inventoryId || "",
           item.id
         );
+        //@ts-expect-error skip for now kay kapoy
+        if (receiptData?.data[0].issued_quantity <= 0 && fetch === 'all'){
+          continue;
+        }
 
         //@ts-expect-error skip for now kay kapoy
         if (receiptData?.data[0].is_consumed && fetch === 'some') {

@@ -113,7 +113,7 @@ model ReturnedItems {
   notes               String
   status              ReturnedItemStatus @default(active)
   size                String?
-
+  itemId              String?
   userId              String?
   receiptRef          String
   created_by          User?     @relation(fields: [userId], references: [id])
