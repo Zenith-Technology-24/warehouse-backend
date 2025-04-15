@@ -113,7 +113,10 @@ model ReturnedItems {
   notes               String
   status              ReturnedItemStatus @default(active)
   size                String?
+
+  userId              String?
   receiptRef          String
+  created_by          User?     @relation(fields: [userId], references: [id])
   created_at          DateTime           @default(now())
   updated_at          DateTime           @updatedAt
 
@@ -201,6 +204,7 @@ model User {
   Receipt               Receipt[]
   performedActivityLogs ActivityLog[] @relation("performedByRelation")
   notifications         Notifications[]
+  returnedItems         ReturnedItems[]
 
   @@map("user")
 }
