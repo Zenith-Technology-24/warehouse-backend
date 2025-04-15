@@ -107,7 +107,14 @@ export class ReceiptService {
             },
           });
 
-          console.log(issuedItems);
+          const issuances = await prisma.issuanceDetail.findMany({
+            where: {
+              id: {
+                in: issuedItems.map((item) => item.issuanceId) as string[],
+              },
+              status: "withdrawn",
+            },
+          });
 
           if (receiptItems.length === 0) {
             return {
@@ -123,7 +130,7 @@ export class ReceiptService {
             return acc + Number(item.quantity || "0");
           }, 0);
 
-          const totalIssuedQuantity = issuedItems.reduce((acc, item) => {
+          const totalIssuedQuantity = issuances.reduce((acc, item) => {
 
             return acc + Number(item.quantity || "0");
           }, 0);
@@ -684,6 +691,7 @@ export class ReceiptService {
               issuanceDetailId: {
                 not: null,
               },
+              
             },
             include: {
               IssuanceDetail: true,
@@ -704,7 +712,9 @@ export class ReceiptService {
             return acc + Number(item.quantity || "0");
           }, 0);
 
-          const totalIssuedQuantity = issuedItems.reduce((acc, item) => {
+          const totalIssuedQuantity = issuedItems.filter(item => {
+            return item.IssuanceDetail?.status === "withdrawn";
+          }).reduce((acc, item) => {
             return acc + Number(item.quantity || "0");
           }, 0);
 

@@ -15,6 +15,7 @@ interface UpdateUserRequest {
   lastname?: string;
 }
 
+
 export const login = async (c: Context) => {
   const data: LoginRequestType = await c.req.json<LoginRequestType>();
   console.log(data);

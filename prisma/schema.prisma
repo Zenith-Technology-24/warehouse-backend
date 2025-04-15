@@ -120,6 +120,21 @@ model ReturnedItems {
   @@map("returnedItems")
 }
 
+
+model Notifications {
+  id         String   @id @unique @default(uuid())
+  dataId     String?
+  title      String?
+  message    String?
+  userId     String
+  read       Boolean  @default(false)
+  user       User     @relation(fields: [userId], references: [id])
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("notifications")
+}
+
 model IssuanceDetail {
   id        String        @id @unique @default(uuid())
   quantity  String        @default("1")
@@ -185,6 +200,7 @@ model User {
   Issuance              Issuance[]
   Receipt               Receipt[]
   performedActivityLogs ActivityLog[] @relation("performedByRelation")
+  notifications         Notifications[]
 
   @@map("user")
 }

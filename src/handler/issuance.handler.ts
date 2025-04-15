@@ -28,8 +28,8 @@ export const exportIssuance = async (c: Context) => {
   const { start_date, end_date, search, status } = requestBody;
   return c.json(
     await issuanceService.export(
-      start_date ?? "", 
-      end_date ?? "", 
+      start_date ?? "",
+      end_date ?? "",
       status,
       search ?? ""
     ), 200
@@ -37,7 +37,9 @@ export const exportIssuance = async (c: Context) => {
 }
 
 export const fetchReceiptsForIssuance = async (c: Context) => {
-  return c.json(await issuanceService.getReceipts(), 200);
+  // get the get param for all
+  const fetch = c.req.query("fetch");
+  return c.json(await issuanceService.getReceipts(fetch), 200);
 };
 
 export const createIssuance = async (c: Context & { user: User }) => {
@@ -60,7 +62,8 @@ export const getInventoryIssuance = async (c: Context) => {
 
 export const withdrawIssuance = async (c: Context) => {
   const id = c.req.param("id");
-  return c.json(await issuanceService.withdrawIssuance(id), 200);
+  const inventoryId = c.req.param("inventoryId");
+  return c.json(await issuanceService.withdrawIssuance(id, inventoryId), 200);
 }
 
 export const withdrawAllIssuance = async (c: Context) => {
