@@ -647,19 +647,20 @@ export class ReceiptService {
                 name: true,
                 status: true,
                 sizeType: true,
-                item: {
-                  select: {
-                    location: true,
-                    size: true,
-                    quantity: true,
-                    expiryDate: true,
-                    item_name: true,
-                    unit: true,
-                    price: true,
-                    amount: true,
-                    inventoryId: true,
-                  },
-                },
+                unit: true,
+              },
+            },
+            item: {
+              select: {
+                location: true,
+                size: true,
+                quantity: true,
+                expiryDate: true,
+                item_name: true,
+                unit: true,
+                price: true,
+                amount: true,
+                inventoryId: true,
               },
             },
             user: {
@@ -749,6 +750,7 @@ export class ReceiptService {
               }
             }
           }
+          
 
           return {
             ...receipt,
@@ -810,6 +812,7 @@ export class ReceiptService {
     }
   }
 
+
   async export(
     start_date: string,
     end_date: string,
@@ -826,14 +829,22 @@ export class ReceiptService {
           ? {
               OR: [
                 {
-                  issuanceDirective: { contains: search, mode: "insensitive" },
+                  issuanceDirective: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
                 },
-                { source: { contains: search, mode: "insensitive" } },
+                {
+                  source: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
               ],
             }
           : {}),
       };
-
+  
       const receipts = await prisma.receipt.findMany({
         where: { ...where, status } as any,
         include: {
@@ -843,19 +854,20 @@ export class ReceiptService {
               name: true,
               status: true,
               sizeType: true,
-              item: {
-                select: {
-                  location: true,
-                  size: true,
-                  quantity: true,
-                  expiryDate: true,
-                  item_name: true,
-                  unit: true,
-                  price: true,
-                  amount: true,
-                  inventoryId: true,
-                },
-              },
+              unit: true,
+            },
+          },
+          item: {
+            select: {
+              location: true,
+              size: true,
+              quantity: true,
+              expiryDate: true,
+              item_name: true,
+              unit: true,
+              price: true,
+              amount: true,
+              inventoryId: true,
             },
           },
           user: {
@@ -870,50 +882,88 @@ export class ReceiptService {
           createdAt: "desc",
         },
       });
+  
+      const enrichedReceipts = await Promise.all(
+        receipts.map(async (receipt) => {
+          const receiptItems = await prisma.item.findMany({
+            where: { receiptId: receipt.id },
+          });
+  
+          const issuedItems = await prisma.item.findMany({
+            where: {
+              receiptRef: receipt.issuanceDirective,
+              issuanceDetailId: { not: null },
+            },
+            include: {
+              IssuanceDetail: true,
+            },
+          });
+  
+          const totalReceiptQuantity = receiptItems.reduce(
+            (acc, item) => acc + Number(item.quantity || "0"),
+            0
+          );
+  
+          const totalIssuedQuantity = issuedItems.reduce(
+            (acc, item) => acc + Number(item.quantity || "0"),
+            0
+          );
+  
+          const remainingQuantity = Math.max(
+            0,
+            totalReceiptQuantity - totalIssuedQuantity
+          );
 
-      const formattedReceipts = receipts.map((receipt) => {
-        const formattedInventories = receipt.inventory.map((inv) => {
-          if (inv.item) {
-            const formattedItem = {
-              ...inv.item,
-              price: inv.item.price
-                ? new Intl.NumberFormat("en-EN", {
-                    maximumFractionDigits: 2,
-                  }).format(parseFloat(inv.item.price))
-                : "0.00",
-              amount: inv.item.amount
-                ? new Intl.NumberFormat("en-EN", {
-                    maximumFractionDigits: 2,
-                  }).format(parseFloat(inv.item.amount))
-                : "0.00",
-            };
+          if (issuedItems.length > 0) {
+            const issuanceDetailMap = new Map();
 
-            return { ...inv, item: formattedItem };
+            issuedItems.forEach((item) => {
+              if (item.issuanceDetailId) {
+                if (!issuanceDetailMap.has(item.issuanceDetailId)) {
+                  issuanceDetailMap.set(item.issuanceDetailId, {
+                    totalQuantity: 0,
+                    detail: item.IssuanceDetail,
+                  });
+                }
+
+                const entry = issuanceDetailMap.get(item.issuanceDetailId);
+                entry.totalQuantity += Number(item.quantity || "0");
+              }
+            });
+
+            for (const [detailId, info] of issuanceDetailMap.entries()) {
+              if (info.detail && info.totalQuantity >= totalReceiptQuantity) {
+                await prisma.issuanceDetail.update({
+                  where: { id: detailId },
+                  data: { status: "withdrawn" },
+                });
+              }
+            }
           }
-          return inv;
-        });
-
-        const totalAmount = receipt.inventory.reduce((sum, inv) => {
-          if (inv.item?.amount) {
-            return sum + parseFloat(inv.item.amount);
-          }
-          return sum;
-        }, 0);
-
-        return {
-          ...receipt,
-          inventory: formattedInventories,
-          totalAmount: new Intl.NumberFormat("en-EN", {
-            maximumFractionDigits: 2,
-          }).format(totalAmount),
-        };
-      });
-
-      return formattedReceipts;
+          
+          const totalAmount = receipt.item.reduce((sum, inv) => {
+            return sum + (parseFloat(inv.amount || "0"));
+          }, 0);
+  
+          return {
+            ...receipt,
+            max_quantity: totalReceiptQuantity,
+            issued_quantity: totalIssuedQuantity,
+            current_quantity: remainingQuantity,
+            quantity_string: `${totalIssuedQuantity}/${totalReceiptQuantity}`,
+            totalAmount: new Intl.NumberFormat("en-EN", {
+              maximumFractionDigits: 2,
+            }).format(totalAmount),
+          };
+        })
+      );
+      
+      return enrichedReceipts;
     } catch (error: any) {
       throw new Error(`Failed to get receipts: ${error.message}`);
     }
   }
+  
 
   async archive(id: string): Promise<Receipt> {
     try {
