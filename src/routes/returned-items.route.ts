@@ -10,6 +10,6 @@ returnedItems.use(activityLogMiddleware as never)
 returnedItems.get('/', getReturnedItems);
 returnedItems.post('/', createReturnedItems as never);
 returnedItems.put('/:id', updateReturnedItems as never);
-returnedItems.get('/:id', getOneReturnedItem as never);
+returnedItems.get('/:id', getOneReturnedItem);
 
 export default returnedItems;

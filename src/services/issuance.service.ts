@@ -896,6 +896,47 @@ export class IssuanceService {
     return issuance;
   }
 
+  async pendingIssuance(id: string, inventoryId: string) {
+    const issuance = await prisma.issuanceDetail.update({
+      where: { id },
+      data: {
+        status: "pending",
+      },
+      select: {
+        issuanceId: true,
+      },
+    });
+
+    const issuances = await prisma.issuanceDetail.findMany({
+      where: { issuanceId: issuance.issuanceId },
+    });
+
+    const pendingCount = issuances.filter((item) => item.status === "pending");
+
+    if (pendingCount.length === 0) {
+      await prisma.issuance.update({
+        where: { id: issuance.issuanceId },
+        data: {
+          status: "withdrawn",
+          issuanceStatus: "withdrawn",
+        },
+      });
+    }
+
+    // GIL
+    const inventory = await inventoryService.getInventoryById(inventoryId);
+
+    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+      await notificationService.createLowStockNotification({
+        name: inventory?.name,
+        size: inventory?.quantitySummary?.totalQuantity,
+        dataId: inventory?.id
+      })
+    }
+
+    return issuance;
+  }
+
   async withdrawAllIssuance(id: string) {
     await prisma.issuance.update({
       where: { id },
