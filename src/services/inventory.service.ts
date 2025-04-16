@@ -681,7 +681,7 @@ export class InventoryService {
 
       let filteredInventories = null
 
-      filter !== '' 
+      filter! && filter !== 'All' 
         ? filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
         : filteredInventories = processedInventories 
 
