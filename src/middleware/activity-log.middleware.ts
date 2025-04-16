@@ -30,6 +30,10 @@ export const activityLogMiddleware = async (c: Context & { user: Partial<User>; 
             POST: `${user?.username || "Unknown"} created a user`,
             PUT: `${user?.username || "Unknown"} updated a user`,
         },
+        'returned-items': {
+            POST: `${user?.username || "Unknown"} created a return of items`,
+            PUT: `${user?.username || "Unknown"} updated a return of items`,
+        }
     };
 
     const activityMessage = actionMessages[path]?.[method] || `${user?.username || "Unknown"} performed ${method} on ${path}`;
