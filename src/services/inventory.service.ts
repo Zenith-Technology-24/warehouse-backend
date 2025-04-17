@@ -863,10 +863,10 @@ export class InventoryService {
           }).format(grandTotalAmount),
         };
       });
-  
-      let filteredInventories = null;
-  
-      filter !== '' 
+
+      let filteredInventories = null
+
+      filter! && filter !== 'All' 
         ? filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
         : filteredInventories = processedInventories;
   

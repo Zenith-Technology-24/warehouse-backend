@@ -103,64 +103,63 @@ export class NotificationService {
     }
   }
 
-  async checkIssuanceValidityDate() {
-    try {
-      const users = await prisma.user.findMany();
+    async checkIssuanceValidityDate() {
+        try {
+            const users = await prisma.user.findMany();
 
-      for (let dayOffset = 1; dayOffset <= 5; dayOffset++) {
-        const targetDate = moment().add(dayOffset, "days");
-        const start = targetDate.startOf("day").toDate();
-        const end = targetDate.endOf("day").toDate();
+            const notifyOffsets = [5, 3, 1];
 
-        const issuance = await prisma.issuance.findFirst({
-          where: {
-            validityDate: {
-              gte: start,
-              lte: end,
-            },
-            status: {
-              not: "withdrawn",
-            },
-          },
-        });
+            for (const dayOffset of notifyOffsets) {
+                const targetDate = moment().add(dayOffset, "days");
+                const start = targetDate.startOf("day").toDate();
+                const end = targetDate.endOf("day").toDate();
 
-        if (issuance) {
-          const message = `The issuance "${
-            issuance.issuanceDirective
-          }" will expire in ${dayOffset} day${
-            dayOffset > 1 ? "s" : ""
-          }. Please take necessary action.`;
-
-          await Promise.all(
-            users.map(async (user) => {
-              const existingNotification = await prisma.notifications.findFirst(
-                {
-                  where: {
-                    userId: user.id,
-                    message,
-                  },
-                }
-              );
-              if (!existingNotification) {
-                await prisma.notifications.create({
-                  data: {
-                    userId: user.id,
-                    dataId: issuance.id,
-                    title: `Issuance Validity Reminder`,
-                    message,
-                  },
+                const issuance = await prisma.issuance.findFirst({
+                    where: {
+                        validityDate: {
+                            gte: start,
+                            lte: end,
+                        },
+                        status: {
+                            not: "withdrawn",
+                        },
+                    },
                 });
-              }
-            })
-          );
-        }
-      }
 
-      return true;
-    } catch (error: any) {
-      throw new Error(`Error: ${error.message}`);
+                if (issuance) {
+                    const message = `The issuance "${issuance.issuanceDirective
+                        }" will expire in ${dayOffset} day${dayOffset > 1 ? "s" : ""}. Please take necessary action.`;
+
+                    await Promise.all(
+                        users.map(async (user) => {
+                            const existingNotification = await prisma.notifications.findFirst({
+                                where: {
+                                    userId: user.id,
+                                    message,
+                                },
+                            });
+
+                            if (!existingNotification) {
+                                await prisma.notifications.create({
+                                    data: {
+                                        userId: user.id,
+                                        dataId: issuance.id,
+                                        title: `Issuance Validity Reminder`,
+                                        message,
+                                    },
+                                });
+                            }
+                        })
+                    );
+                }
+            }
+
+            return true;
+        } catch (error: any) {
+            throw new Error(`Error: ${error.message}`);
+        }
     }
-  }
+
 
   async readNotification(id: string) {
     try {
