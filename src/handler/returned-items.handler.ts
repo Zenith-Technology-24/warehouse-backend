@@ -1,4 +1,5 @@
 import { ReturnedItemsService } from '@/services/returned-items.service';
+import { User } from '@prisma/client';
 import { Context } from "hono";
 
 const returnedItemsService = new ReturnedItemsService();
@@ -15,10 +16,10 @@ export const getReturnedItems = async (c: Context) => {
     );
 };
 
-export const createReturnedItems = async (c: Context) => {
+export const createReturnedItems = async (c: Context & { user: User }) => {
     const data = await c.req.json();
-
-    return c.json(await returnedItemsService.create(data), 201);
+    const user = c.user;
+    return c.json(await returnedItemsService.create(data, user), 201);
 };
 
 export const updateReturnedItems = async (c: Context) => {

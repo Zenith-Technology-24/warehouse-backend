@@ -17,7 +17,7 @@ export const getInventories = async (c: Context) => {
       c.req.query("search"),
       c.req.query("status"),
       c.req.query('filter')
-    ),
+    ) as unknown as { data: any[] },
     200
   );
 };
