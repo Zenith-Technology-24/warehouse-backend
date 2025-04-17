@@ -11,6 +11,22 @@ import receipt from "./receipt.route";
 import activityLog from "./activity-log.route";
 import returnedItems from "./returned-items.route";
 import notification from "./notification.route";
+import { NotificationService } from "@/services/notification.service";
+
+const notificationService = new NotificationService();
+
+const checkExpiringStocksMiddleware = async (c: any, next: () => Promise<any>) => {
+  try {
+    const path = c.req.path;
+    if (!path.includes('/api/auth/login') && !path.includes('/api/auth/register') && !path.includes('/api/notification')) {
+      await notificationService.checkExpiringStocks();
+      
+    }
+  } catch (error) {
+    console.error('Failed to check expiring stocks:', error);
+  }
+  return await next();
+};
 
 const errorHandler = async (err: Error, c: Context) => {
   console.error('Error:', err);
@@ -57,6 +73,8 @@ const errorHandler = async (err: Error, c: Context) => {
 
 export const routes = (app: OpenAPIHono) => {
   app.onError(errorHandler);
+  app.use('*', checkExpiringStocksMiddleware);
+  
   app.route("/api/auth", auth);
   app.route("/api/user", user);
   app.route("/api/inventory", inventory);

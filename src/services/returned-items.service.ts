@@ -1,4 +1,4 @@
-import { ReturnedItemStatus } from '@prisma/client';
+import { ReturnedItemStatus, User } from '@prisma/client';
 import { createReturnedItems } from './../handler/returned-items.handler';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import prisma from "@/generic/prisma";
@@ -39,6 +39,9 @@ export class ReturnedItemsService {
                     orderBy: {
                         created_at: "desc",
                     },
+                    include: {
+                        created_by: true,
+                    }
                 }),
                 prisma.returnedItems.count({ where: where as never }),
             ]);
@@ -54,11 +57,12 @@ export class ReturnedItemsService {
         }
     }
 
-    async create(data: any) {
+    async create(data: any, user: User) {
         try {
             return await prisma.returnedItems.create({
                 data: {
                     ...data,
+                    userId: user.id
                 },
             });
         } catch (error: any) {
@@ -81,7 +85,10 @@ export class ReturnedItemsService {
         return await prisma.returnedItems.findUnique({
             where: {
                 id
-            }
+            },
+            include: {
+                created_by: true,
+            },
         })
     }
 }
