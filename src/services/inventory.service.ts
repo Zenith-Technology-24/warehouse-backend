@@ -80,9 +80,9 @@ export class InventoryService {
       const existingInventory = await prisma.inventory.findUnique({
         where: { id },
       });
-
+  
       if (!existingInventory) return null;
-
+  
       const query = await prisma.inventory.findUnique({
         where: { id },
         include: {
@@ -136,16 +136,36 @@ export class InventoryService {
               },
             },
           },
+          // Include returned items data
+          ReturnedItems: {
+            select: {
+              id: true,
+              itemName: true,
+              size: true,
+              receiptRef: true,
+              status: true,
+            },
+          },
+          // Include inventory transactions for more accurate data
+          InventoryTransaction: {
+            select: {
+              id: true,
+              quantity: true,
+              type: true,
+              price: true,
+              amount: true,
+            },
+          },
         },
       });
-
+  
       const issuanceData = await Promise.all(
         query?.issuanceDetails.map(async (detail) => {
           // You can add additional queries here as needed
           const inventoryData = await prisma.inventory.findUnique({
             where: { id: detail.inventoryId || "" },
           });
-
+  
           return {
             ...detail,
             user: detail.issuance.user,
@@ -154,15 +174,15 @@ export class InventoryService {
           };
         }) || []
       );
-
+  
       const inventory = {
         ...query,
         issuanceDetails: query?.issuance,
         issuance: issuanceData,
       };
-
+  
       if (!inventory) return null;
-
+  
       const items = await prisma.item.findMany({
         where: { inventoryId: id },
         include: {
@@ -183,16 +203,17 @@ export class InventoryService {
           },
         },
       });
-
+  
       const quantitySummary = {
         totalQuantity: 0,
         availableQuantity: 0,
         pendingQuantity: 0,
         pendingIssuanceQuantity: 0,
         withdrawnQuantity: 0,
+        returnedQuantity: 0, // Add tracking for returned items
         grandTotalAmount: 0,
       };
-
+  
       const sizeQuantities: Record<
         string,
         {
@@ -200,50 +221,107 @@ export class InventoryService {
           available: number;
           withdrawn: number;
           total: number;
+          returned: number; // Add tracking for returned items by size
         }
       > = {};
-
+  
       if (inventory.item) {
         const quantity = parseInt(inventory.item.quantity || "0", 10);
         const size = inventory.item.size || "No Size";
         const price = parseFloat(inventory.item.price || "0");
         const amount = quantity * price;
-
+  
         if (!sizeQuantities[size]) {
           sizeQuantities[size] = {
             pending: 0,
             available: 0,
             withdrawn: 0,
             total: 0,
+            returned: 0,
           };
         }
-
+  
         sizeQuantities[size].available += quantity;
         quantitySummary.grandTotalAmount += amount;
       }
-
+  
       items.forEach((item) => {
         const quantity = parseInt(item.quantity || "0", 10);
         const size = item.size || "No Size";
         const price = parseFloat(item.price || "0");
         const amount = quantity * price;
-
+  
         if (!sizeQuantities[size]) {
           sizeQuantities[size] = {
             pending: 0,
             available: 0,
             withdrawn: 0,
             total: 0,
+            returned: 0,
           };
         }
-
+  
         sizeQuantities[size].available += quantity;
-
+  
         if (item.receiptId) {
           quantitySummary.grandTotalAmount += amount;
         }
       });
-
+  
+      // Process inventory transactions for returned items
+      if (inventory.InventoryTransaction) {
+        inventory.InventoryTransaction.forEach((transaction) => {
+          if (transaction.type === "RETURNED") {
+            const quantity = parseInt(transaction.quantity || "0", 10);
+            const price = parseFloat(transaction.price || "0");
+            const size = transaction.size || "No Size";
+            
+            if (!sizeQuantities[size]) {
+              sizeQuantities[size] = {
+                pending: 0,
+                available: 0,
+                withdrawn: 0,
+                total: 0,
+                returned: 0,
+              };
+            }
+            
+            sizeQuantities[size].returned += quantity;
+            sizeQuantities[size].available += quantity;
+            quantitySummary.returnedQuantity += quantity;
+            quantitySummary.grandTotalAmount += quantity * price;
+          }
+        });
+      }
+  
+      // Process returned items (fallback if transaction data is missing)
+      if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0 && quantitySummary.returnedQuantity === 0) {
+        inventory.ReturnedItems.forEach((item) => {
+          const size = item.size || "No Size";
+          
+          if (!sizeQuantities[size]) {
+            sizeQuantities[size] = {
+              pending: 0,
+              available: 0,
+              withdrawn: 0,
+              total: 0,
+              returned: 0,
+            };
+          }
+          
+          // Default quantity is 1 if not specified
+          const quantity = 1;
+          sizeQuantities[size].returned += quantity;
+          sizeQuantities[size].available += quantity;
+          quantitySummary.returnedQuantity += quantity;
+          
+          // Try to find original price through receipts for accurate amount calculation
+          const originalItem = items.find(i => i.receiptRef === item.receiptRef);
+          const price = originalItem ? parseFloat(originalItem.price || "0") : 0;
+          quantitySummary.grandTotalAmount += quantity * price;
+        });
+      }
+  
       const issuances = await prisma.issuanceDetail.findMany({
         where: {
           inventoryId: inventory.id,
@@ -266,7 +344,7 @@ export class InventoryService {
           },
         },
       });
-
+  
       const issuance = await Promise.all(
         issuances.map(async (detail) => {
           const itemData = await prisma.item.findFirst({
@@ -275,7 +353,7 @@ export class InventoryService {
           const issuanceData = await prisma.issuance.findUnique({
             where: { id: detail.issuanceId || "" },
           });
-
+  
           return {
             ...detail,
             issuanceDirective: issuanceData?.issuanceDirective,
@@ -285,23 +363,24 @@ export class InventoryService {
           };
         })
       );
-
+  
       issuance?.forEach((detail) => {
         const quantity = parseInt(detail.quantity || "0", 10);
-
+  
         const size = detail?.size || "No Size";
         const price = parseFloat(detail.price || "0");
         const amount = quantity * price;
-
+  
         if (!sizeQuantities[size]) {
           sizeQuantities[size] = {
             pending: 0,
             available: 0,
             withdrawn: 0,
             total: 0,
+            returned: 0,
           };
         }
-
+  
         if (detail.status === "pending") {
           sizeQuantities[size].pending += quantity;
           quantitySummary.pendingIssuanceQuantity += quantity;
@@ -312,27 +391,28 @@ export class InventoryService {
           quantitySummary.grandTotalAmount -= amount;
         }
       });
-
+  
       items.forEach((item) => {
         if (item.issuanceDetailId) {
           return;
         }
-
+  
         const quantity = parseInt(item.quantity || "", 10);
         const size = item.size || "No Size";
-
+  
         if (!sizeQuantities[size]) {
           sizeQuantities[size] = {
             pending: 0,
             available: 0,
             withdrawn: 0,
             total: 0,
+            returned: 0,
           };
         }
-
+  
         sizeQuantities[size].total += quantity;
       });
-
+  
       if (
         inventory.issuanceDetails &&
         inventory.issuanceDetails.status === "withdrawn"
@@ -341,57 +421,58 @@ export class InventoryService {
           inventory.issuanceDetails.quantity || "0",
           10
         );
-
+  
         const itemForSize =
           items.find((item) => item.receipt?.status === "active") ||
           inventory.item;
-
+  
         const size = itemForSize?.size || "No Size";
-
+  
         if (!sizeQuantities[size]) {
           sizeQuantities[size] = {
             pending: 0,
             available: 0,
             withdrawn: 0,
             total: 0,
+            returned: 0,
           };
         }
-
+  
         sizeQuantities[size].withdrawn += quantity;
       }
-
+  
       let totalAvailable = 0;
-
+  
       Object.keys(sizeQuantities).forEach((size) => {
+        // Add returned items to the calculation
         const finalAvailable = Math.max(
           0,
-          sizeQuantities[size].total - sizeQuantities[size].withdrawn
+          sizeQuantities[size].total - sizeQuantities[size].withdrawn + sizeQuantities[size].returned
         );
         sizeQuantities[size].available = finalAvailable;
-
+  
         totalAvailable += finalAvailable;
       });
-
+  
       quantitySummary.availableQuantity =
         totalAvailable - quantitySummary.pendingQuantity;
       quantitySummary.totalQuantity = totalAvailable;
-
+  
       const sizeDetails: Array<{
         size: string;
         pairs: string;
         status: string;
-        type: "pending" | "available" | "withdrawn";
+        type: "pending" | "available" | "withdrawn" | "returned";
       }> = [];
-
+  
       function determineStockLevel(quantity: number): string {
         if (quantity <= 0) return "Out of Stock";
         if (quantity <= 30) return "Low Stock";
         if (quantity <= 98) return "Mid Stock";
         return "High Stock";
       }
-
+  
       Object.entries(sizeQuantities).forEach(([size, quantities]) => {
-        console.log(quantities);
         if (quantities.pending > 0) {
           const stockLevel = determineStockLevel(quantities.pending);
           sizeDetails.push({
@@ -401,7 +482,7 @@ export class InventoryService {
             type: "pending",
           });
         }
-
+  
         if (quantities.available > 0) {
           const stockLevel = determineStockLevel(quantities.available);
           sizeDetails.push({
@@ -411,16 +492,27 @@ export class InventoryService {
             type: "available",
           });
         }
+  
+        // Add returned items to size details if any exist
+        if (quantities.returned > 0) {
+          const stockLevel = determineStockLevel(quantities.returned);
+          sizeDetails.push({
+            size,
+            pairs: String(quantities.returned),
+            status: stockLevel,
+            type: "returned",
+          });
+        }
       });
-
+  
       const groupedSizeDetails = {
         pending: sizeDetails
           .filter((detail) => detail.type === "pending")
           .map(({ size, pairs, status }) => ({ size, pairs, status })),
         available: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          // Available should be: total quantities - total pending
+          // Available should be: total quantities - total pending + returned
           const pairs =
-            quantities.total - (quantities.pending + quantities.withdrawn);
+            quantities.total - quantities.pending - quantities.withdrawn + quantities.returned;
           const availablePairs = Math.max(0, pairs);
           const stockLevel = determineStockLevel(availablePairs);
           return {
@@ -429,10 +521,9 @@ export class InventoryService {
             status: stockLevel,
           };
         }),
-
         total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          // Use the properly calculated total quantities directly
-          const totalPairs = quantities.total - quantities.withdrawn;
+          // Include returned items in the total calculation
+          const totalPairs = quantities.total - quantities.withdrawn + quantities.returned;
           const stockLevel = determineStockLevel(totalPairs);
           return {
             size,
@@ -440,10 +531,19 @@ export class InventoryService {
             status: stockLevel,
           };
         }),
+        // Add a new group for returned items
+        returned: Object.entries(sizeQuantities)
+          .filter(([_, quantities]) => quantities.returned > 0)
+          .map(([size, quantities]) => {
+            const stockLevel = determineStockLevel(quantities.returned);
+            return {
+              size,
+              pairs: String(quantities.returned),
+              status: stockLevel,
+            };
+          }),
       };
-
-      //
-
+  
       const newItems = await Promise.all(
         items.map(async (item) => {
           const receiptItems = await prisma.inventoryTransaction.findMany({
@@ -453,9 +553,9 @@ export class InventoryService {
               type: "RECEIPT",
             },
           });
-
+  
           const issuanceDetails = [];
-
+  
           const issuedItems = await prisma.inventoryTransaction.findMany({
             where: {
               itemId: item.id,
@@ -466,7 +566,21 @@ export class InventoryService {
               },
             },
           });
-
+  
+          // Get returned items for this specific item
+          const returnedItems = await prisma.inventoryTransaction.findMany({
+            where: {
+              itemId: item.id,
+              inventoryId: id,
+              type: "RETURNED",
+            },
+          });
+  
+          const totalReturnedItems = returnedItems.reduce(
+            (acc, item) => acc + parseInt(item.quantity || "0", 10),
+            0
+          );
+  
           for(let i = 0; i < issuedItems.length; i++) {
             const issuedItem = issuedItems[i];
             const issuanceDetail = await prisma.issuanceDetail.findUnique({
@@ -477,41 +591,53 @@ export class InventoryService {
                 }
               },
             });
-
+  
             if (issuanceDetail) {
               issuanceDetails.push({...issuedItem, ...issuanceDetail});
             }
           }
-
+  
           const totalReceiptItems = receiptItems.reduce(
             (acc, item) => acc + parseInt(item.quantity || "0", 10),
             0
           );
+          
           const totalIssuedItems = issuanceDetails.reduce(
             (acc, item) => acc + parseInt(item.quantity || "0", 10),
             0
           );
-
+  
+          // Adjust total issued items to account for returns
+          const adjustedIssuedItems = Math.max(0, totalIssuedItems - totalReturnedItems);
+  
           const totalIssuedItemsAmount = issuanceDetails.reduce(
             (acc, item) => acc + parseFloat(item.amount || "0"),
             0
           );
-
+  
+          // Adjust the amount based on returned items
+          const returnedItemsAmount = returnedItems.reduce(
+            (acc, item) => acc + parseFloat(item.amount || "0"),
+            0
+          );
+  
           return {
             ...item,
             totalReceiptItems,
-            totalIssuedItems,
-            quantity: `${totalIssuedItems} / ${totalReceiptItems}`,
-            is_consumed: totalIssuedItems >= totalReceiptItems,
-            amount: Number(item.amount) - totalIssuedItemsAmount,
+            totalIssuedItems: adjustedIssuedItems,
+            totalReturnedItems,
+            quantity: `${adjustedIssuedItems} / ${totalReceiptItems}`,
+            is_consumed: adjustedIssuedItems >= totalReceiptItems,
+            amount: Number(item.amount) - totalIssuedItemsAmount + returnedItemsAmount,
           };
         })
       );
-
+  
       return {
         ...inventory,
         quantitySummary: {
           ...quantitySummary,
+          returnedQuantity: quantitySummary.returnedQuantity,
           grandTotalAmount: new Intl.NumberFormat("en-EN", {
             maximumFractionDigits: 2,
           }).format(quantitySummary.grandTotalAmount),
@@ -551,11 +677,11 @@ export class InventoryService {
             ],
           }
         : {};
-
+  
       const totalCount = await prisma.inventory.count({
         where: { ...where, status: status as ProductStatus | undefined } as any,
       });
-
+  
       const inventories = await prisma.inventory.findMany({
         where: { ...where, status: status as ProductStatus | undefined } as any,
         include: {
@@ -580,6 +706,26 @@ export class InventoryService {
               issuanceId: true,
             },
           },
+          // Include returned items
+          ReturnedItems: {
+            select: {
+              id: true,
+              itemName: true,
+              size: true,
+              receiptRef: true,
+              status: true,
+            },
+          },
+          // Include inventory transactions to get more accurate data
+          InventoryTransaction: {
+            select: {
+              id: true,
+              quantity: true,
+              type: true,
+              price: true,
+              amount: true,
+            },
+          },
         },
         orderBy: {
           createdAt: "desc",
@@ -587,26 +733,27 @@ export class InventoryService {
         skip,
         take: pageSize,
       });
-
+  
       const processedInventories = inventories.map((inventory) => {
         let totalQuantity = 0;
         let availableQuantity = 0;
         let pendingQuantity = 0;
         let pendingIssuanceQuantity = 0;
         let withdrawnQuantity = 0;
+        let returnedQuantity = 0;
         let grandTotalAmount = 0;
-
+  
         // Handle initial inventory quantity
         if (inventory.item) {
           const quantity = parseInt(inventory.item.quantity || "0", 10);
           const price = parseFloat(inventory.item.price || "0");
-
+  
           totalQuantity += quantity;
           availableQuantity += quantity;
           grandTotalAmount += quantity * price;
         }
         let currentPrice = 0;
-
+  
         // Process receipts
         inventory.receipts.forEach((receipt) => {
           receipt.item
@@ -625,10 +772,47 @@ export class InventoryService {
               }
             });
         });
-
+  
+        // Process inventory transactions for more accurate data
+        inventory.InventoryTransaction.forEach((transaction) => {
+          const quantity = parseInt(transaction.quantity || "0", 10);
+          const price = parseFloat(transaction.price || "0");
+          
+          if (transaction.type === "RETURNED") {
+            returnedQuantity += quantity;
+            // Add back to available and total since items were returned
+            availableQuantity += quantity;
+            totalQuantity += quantity;
+            grandTotalAmount += quantity * price;
+          }
+        });
+  
+        // Process returned items (fallback if transaction data is incomplete)
+        if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
+          // Check if we already counted this via transactions to avoid double-counting
+          if (returnedQuantity === 0) {
+            inventory.ReturnedItems.forEach((item) => {
+              // We need to find the original item to get its price
+              const matchingItem = inventory.receipts
+                .flatMap(receipt => receipt.item)
+                .find(i => i.receiptRef === item.receiptRef);
+              
+              if (matchingItem) {
+                const quantity = 1; // Default to 1 if not specified
+                const price = parseFloat(matchingItem.price || "0");
+                
+                returnedQuantity += quantity;
+                availableQuantity += quantity;
+                totalQuantity += quantity;
+                grandTotalAmount += quantity * price;
+              }
+            });
+          }
+        }
+  
+        // Process issuance details
         inventory.issuanceDetails.forEach((detail) => {
           const issuedQuantity = parseInt(detail.quantity || "0", 10);
-          console.log(detail.quantity, currentPrice);
           if (detail.status === "pending") {
             pendingIssuanceQuantity += issuedQuantity;
           } else if (detail.status === "withdrawn") {
@@ -637,25 +821,25 @@ export class InventoryService {
             grandTotalAmount -= issuedQuantity * currentPrice;
           }
         });
-
+  
         // Process direct issuances
         if (inventory.issuance && inventory.issuance.status === "withdrawn") {
           const issuedQuantity = parseInt(
             inventory.issuance.quantity || "0",
             10
           );
-
+  
           withdrawnQuantity += issuedQuantity;
           availableQuantity -= issuedQuantity;
         }
-
+  
         // Ensure values don't go negative
         availableQuantity = Math.max(0, availableQuantity);
         grandTotalAmount = Math.max(0, grandTotalAmount);
-
+  
         // Calculate current total (applying the same formula as in getInventoryById)
         totalQuantity = Math.max(0, totalQuantity - withdrawnQuantity);
-
+  
         // Determine stock level
         let stockLevel = "Out of Stock";
         if (totalQuantity > 0) {
@@ -667,24 +851,25 @@ export class InventoryService {
             stockLevel = "High Stock";
           }
         }
-
+  
         return {
           ...inventory,
           totalQuantity,
           availableQuantity,
+          returnedQuantity,
           stockLevel,
           grandTotalAmount: new Intl.NumberFormat("en-EN", {
             maximumFractionDigits: 2,
           }).format(grandTotalAmount),
         };
       });
-
-      let filteredInventories = null
-
+  
+      let filteredInventories = null;
+  
       filter !== '' 
         ? filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
-        : filteredInventories = processedInventories 
-
+        : filteredInventories = processedInventories;
+  
       return {
         data: filteredInventories.filter((inv) => inv.receipts.length > 0),
         total: totalCount,
