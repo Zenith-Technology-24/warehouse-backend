@@ -833,7 +833,7 @@ export class IssuanceService {
           item.id
         );
         //@ts-expect-error skip for now kay kapoy
-        if (receiptData?.data[0].issued_quantity <= 0 && fetch === 'all'){
+        if (receiptData?.data[0].issued_quantity <= 0 && fetch === 'all') {
           continue;
         }
 
@@ -957,6 +957,26 @@ export class IssuanceService {
       },
       data: {
         status: "withdrawn",
+      },
+    });
+  }
+
+  async pendingAllIssuance(id: string) {
+    await prisma.issuance.update({
+      where: { id },
+      data: {
+        status: "pending",
+        issuanceStatus: "pending",
+      },
+    });
+    console.log(id)
+    return await prisma.issuanceDetail.updateMany({
+      where: {
+        issuanceId: id,
+        status: "withdrawn",
+      },
+      data: {
+        status: "pending",
       },
     });
   }

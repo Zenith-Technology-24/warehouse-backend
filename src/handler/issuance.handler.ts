@@ -77,6 +77,11 @@ export const withdrawAllIssuance = async (c: Context) => {
   return c.json(await issuanceService.withdrawAllIssuance(id), 200);
 }
 
+export const pendingAllIssuance = async (c: Context) => {
+  const id = c.req.param("id");
+  return c.json(await issuanceService.pendingAllIssuance(id), 200);
+}
+
 export const archiveIssuance = async (c: Context) => {
   const id = c.req.param("id");
   return c.json(await issuanceService.archiveIssuance(id), 200);

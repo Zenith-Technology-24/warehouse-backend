@@ -1,4 +1,4 @@
-import { archiveIssuance, createIssuance, exportIssuance, fetchReceiptsForIssuance, getInventoryIssuance, getIssuanceById, getIssuances, pendingIssuance, unArchiveIssuance, updateIssuance, withdrawAllIssuance, withdrawIssuance } from "@/handler/issuance.handler";
+import { archiveIssuance, createIssuance, exportIssuance, fetchReceiptsForIssuance, getInventoryIssuance, getIssuanceById, getIssuances, pendingAllIssuance, pendingIssuance, unArchiveIssuance, updateIssuance, withdrawAllIssuance, withdrawIssuance } from "@/handler/issuance.handler";
 import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
@@ -13,6 +13,7 @@ issuance.get('/pending/:id/:inventoryId', pendingIssuance as never);
 issuance.put('/archive/:id', archiveIssuance as never);
 issuance.put('/unarchive/:id', unArchiveIssuance as never);
 issuance.get('/withdraw/all/:id', withdrawAllIssuance as never);
+issuance.get('/pending-all/:id', pendingAllIssuance as never);
 issuance.get('/refs', fetchReceiptsForIssuance as never);
 issuance.get('/inventory', getInventoryIssuance);
 issuance.get('/:id', getIssuanceById);
