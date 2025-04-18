@@ -62,7 +62,7 @@ export class DashboardService {
 
       inventories.forEach((inventory) => {
         if (inventory.item) {
-          const quantity = parseInt(inventory.item.quantity || "0", 10);
+          const quantity = parseInt(inventory.item.quantity || "0");
           const price = parseFloat(inventory.item.price || "0");
 
           totalItems++;
@@ -75,7 +75,7 @@ export class DashboardService {
             .filter((i) => i.issuanceDetailId === null)
             .forEach((item) => {
               if (item.inventoryId === inventory.id) {
-                const quantity = parseInt(item.quantity || "0", 10);
+                const quantity = parseInt(item.quantity || "0");
                 const price = parseFloat(item.price || "0");
 
                 if (receipt.status !== "pending") {
@@ -97,7 +97,7 @@ export class DashboardService {
         });
 
         inventory.InventoryTransaction.forEach((transaction) => {
-          const quantity = parseInt(transaction.quantity || "0", 10);
+          const quantity = parseInt(transaction.quantity || "0");
           const price = parseFloat(transaction.price || "0");
 
           if (transaction.type === "RETURNED") {
@@ -265,7 +265,7 @@ export class DashboardService {
 
         // Calculate available quantity from base item
         if (inventory.item) {
-          const quantity = parseInt(inventory.item.quantity || "0", 10);
+          const quantity = parseInt(inventory.item.quantity || "0");
           availableQuantity += quantity;
         }
 
@@ -275,7 +275,7 @@ export class DashboardService {
             .filter((i) => i.issuanceDetailId === null)
             .forEach((item) => {
               if (item.inventoryId === inventory.id) {
-                const quantity = parseInt(item.quantity || "0", 10);
+                const quantity = parseInt(item.quantity || "0");
                 if (receipt.status !== "pending") {
                   availableQuantity += quantity;
                 }
@@ -285,7 +285,7 @@ export class DashboardService {
 
         // Subtract issued quantities
         inventory.issuanceDetails.forEach((detail) => {
-          const issuedQuantity = parseInt(detail.quantity || "0", 10);
+          const issuedQuantity = parseInt(detail.quantity || "0");
           if (detail.status === "withdrawn") {
             withdrawnQuantity += issuedQuantity;
             availableQuantity -= issuedQuantity;
@@ -295,7 +295,7 @@ export class DashboardService {
         // Add returned quantities
         inventory.InventoryTransaction.forEach((transaction) => {
           if (transaction.type === "RETURNED") {
-            const quantity = parseInt(transaction.quantity || "0", 10);
+            const quantity = parseInt(transaction.quantity || "0");
             availableQuantity += quantity;
           }
         });
