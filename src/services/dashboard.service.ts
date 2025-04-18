@@ -91,6 +91,7 @@ export class DashboardService {
           const issuedQuantity = parseInt(detail.quantity || "0");
 
           if (detail.status === "withdrawn") {
+            totalIssuedItems += issuedQuantity
             totalInStock -= issuedQuantity;
           }
         });
@@ -113,7 +114,7 @@ export class DashboardService {
                   d.issuanceId === transaction.issuanceId
               )
             ) {
-              totalIssuedItems += quantity;
+              // DO NOTHING
             }
           } else if (transaction.type === "RECEIPT") {
             if (
