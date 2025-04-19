@@ -38,6 +38,7 @@ model Inventory {
   // Add issuance details relation for more direct access
   issuanceDetails      IssuanceDetail[]
   InventoryTransaction InventoryTransaction[]
+  ReturnedItems        ReturnedItems[]
 
   @@map("inventories")
 }
@@ -105,24 +106,25 @@ model Issuance {
 }
 
 model ReturnedItems {
-  id                  String             @id @unique @default(uuid())
-  itemName            String?       
-  date                String?
-  time                String?
-  personnel           String
-  notes               String
-  status              ReturnedItemStatus @default(active)
-  size                String?
-  itemId              String?
-  userId              String?
-  receiptRef          String
-  created_by          User?     @relation(fields: [userId], references: [id])
-  created_at          DateTime           @default(now())
-  updated_at          DateTime           @updatedAt
+  id          String             @id @unique @default(uuid())
+  itemName    String?
+  date        String?
+  time        String?
+  personnel   String
+  notes       String
+  status      ReturnedItemStatus @default(active)
+  size        String?
+  itemId      String?
+  userId      String?
+  receiptRef  String
+  created_by  User?              @relation(fields: [userId], references: [id])
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @updatedAt
+  inventoryId String?
+  inventory   Inventory?         @relation(fields: [inventoryId], references: [id])
 
   @@map("returnedItems")
 }
-
 
 model Notifications {
   id         String   @id @unique @default(uuid())
@@ -189,20 +191,20 @@ model Role {
 }
 
 model User {
-  id                    String        @id @unique @default(uuid())
-  email                 String        @unique
+  id                    String          @id @unique @default(uuid())
+  email                 String          @unique
   firstname             String
-  username              String?       @unique
+  username              String?         @unique
   lastname              String
   password              String
-  status                UserStatus    @default(active)
+  status                UserStatus      @default(active)
   roles                 Role[]
   Token                 Token?
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @default(now()) @updatedAt @map("updated_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @default(now()) @updatedAt @map("updated_at")
   Issuance              Issuance[]
   Receipt               Receipt[]
-  performedActivityLogs ActivityLog[] @relation("performedByRelation")
+  performedActivityLogs ActivityLog[]   @relation("performedByRelation")
   notifications         Notifications[]
   returnedItems         ReturnedItems[]
 
@@ -231,6 +233,7 @@ model InventoryTransaction {
 enum TransactionType {
   RECEIPT
   ISSUANCE
+  RETURNED
 }
 
 model Token {

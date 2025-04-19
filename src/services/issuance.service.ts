@@ -942,7 +942,7 @@ export class IssuanceService {
   }
 
   async withdrawAllIssuance(id: string) {
-    await prisma.issuance.update({
+    const issuance = await prisma.issuance.update({
       where: { id },
       data: {
         status: "withdrawn",
@@ -952,7 +952,7 @@ export class IssuanceService {
 
     return await prisma.issuanceDetail.updateMany({
       where: {
-        issuanceId: id,
+        issuanceId: issuance.id,
         status: "pending",
       },
       data: {
