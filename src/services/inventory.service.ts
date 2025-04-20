@@ -689,8 +689,11 @@ export class InventoryService {
     filter?: string
   ): Promise<InventoryResponseType> {
     try {
-      const skip = (page - 1) * pageSize;
+      filter = filter === 'All' ? '' : filter;
 
+      const skip = filter ? undefined : (page - 1) * pageSize;
+      const take = filter ? undefined : pageSize;
+      
       const where = search
         ? {
             OR: [
@@ -699,10 +702,6 @@ export class InventoryService {
             ],
           }
         : {};
-
-      const totalCount = await prisma.inventory.count({
-        where: { ...where, status: status as ProductStatus | undefined } as any,
-      });
 
       const inventories = await prisma.inventory.findMany({
         where: { ...where, status: status as ProductStatus | undefined } as any,
@@ -754,7 +753,7 @@ export class InventoryService {
           createdAt: "desc",
         },
         skip,
-        take: pageSize,
+        take
       });
 
       const processedInventories = inventories.map((inventory) => {
@@ -874,16 +873,24 @@ export class InventoryService {
         };
       });
 
-      let filteredInventories = null;
+      let filteredInventories = processedInventories;
+      let totalCount = 0;
 
-      filter! && filter !== "All"
-        ? (filteredInventories = processedInventories.filter(
-            (inv) => inv.stockLevel === filter
-          ))
-        : (filteredInventories = processedInventories);
+      if (!filter) {
+        totalCount = await prisma.inventory.count({
+          where: { ...where, status: status as ProductStatus | undefined } as any,
+        });
+      } else {
+        filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
+        totalCount = filteredInventories.length
+      }
+      
+      const paginatedInventories = filter
+      ? filteredInventories.slice((page - 1) * pageSize, page * pageSize)
+      : filteredInventories;
 
       return {
-        data: filteredInventories.filter((inv) => inv.receipts.length > 0),
+        data: paginatedInventories.filter((inv) => inv.receipts.length > 0),
         total: totalCount,
         currentPage: page,
         totalPages: Math.ceil(totalCount / pageSize),
