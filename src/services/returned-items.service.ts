@@ -59,9 +59,33 @@ export class ReturnedItemsService {
 
     async create(data: any, user: User) {
         try {
+            // Create a transaction history
+            const currentReceipt = await prisma.receipt.findFirst({
+                where: {
+                    issuanceDirective: data.receiptRef
+                }
+            });
+            await prisma.inventoryTransaction.create({
+                data: {
+                    itemId: data.itemId,
+                    quantity: "1",
+                    type: "RETURNED",
+                    size: data.size,
+                    inventoryId: data.inventoryId,
+                    receiptRef: data.receiptRef,
+                    receiptId: currentReceipt?.id,
+                }
+            });
+
+            const newData = {
+                ...data, 
+                itemSizes: undefined,
+                sizeType: undefined,
+            };
+
             return await prisma.returnedItems.create({
                 data: {
-                    ...data,
+                    ...newData,
                     userId: user.id
                 },
             });
