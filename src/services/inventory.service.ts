@@ -144,6 +144,7 @@ export class InventoryService {
               size: true,
               receiptRef: true,
               status: true,
+              itemId: true,
             },
           },
 
@@ -154,6 +155,7 @@ export class InventoryService {
               type: true,
               price: true,
               amount: true,
+              size: true,
             },
           },
         },
@@ -291,38 +293,48 @@ export class InventoryService {
           }
         });
       }
+      if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
+        const enhancedReturnedItems = await Promise.all(
+          inventory.ReturnedItems.map(async (item) => {
+            const size = item.size || "No Size";
 
-      if (
-        inventory.ReturnedItems &&
-        inventory.ReturnedItems.length > 0 &&
-        quantitySummary.returnedQuantity === 0
-      ) {
-        inventory.ReturnedItems.forEach((item) => {
-          const size = item.size || "No Size";
+            if (!sizeQuantities[size]) {
+              sizeQuantities[size] = {
+                pending: 0,
+                available: 0,
+                withdrawn: 0,
+                total: 0,
+                returned: 0,
+              };
+            }
 
-          if (!sizeQuantities[size]) {
-            sizeQuantities[size] = {
-              pending: 0,
-              available: 0,
-              withdrawn: 0,
-              total: 0,
-              returned: 0,
+            const quantity = 1;
+            sizeQuantities[size].returned += quantity;
+            sizeQuantities[size].available += quantity;
+            quantitySummary.returnedQuantity += quantity;
+
+            const originalItem = await prisma.item.findFirst({
+              where: { receiptRef: item.receiptRef },
+              select: {
+                price: true,
+                amount: true,
+              },
+            });
+
+            const price = originalItem
+              ? parseFloat(originalItem.price || "0")
+              : 0;
+            quantitySummary.grandTotalAmount += quantity * price;
+
+            return {
+              ...item,
+              price: originalItem?.price || "0",
+              amount: originalItem?.amount || "0",
             };
-          }
+          })
+        );
 
-          const quantity = 1;
-          sizeQuantities[size].returned += quantity;
-          sizeQuantities[size].available += quantity;
-          quantitySummary.returnedQuantity += quantity;
-
-          const originalItem = items.find(
-            (i) => i.receiptRef === item.receiptRef
-          );
-          const price = originalItem
-            ? parseFloat(originalItem.price || "0")
-            : 0;
-          quantitySummary.grandTotalAmount += quantity * price;
-        });
+        inventory.ReturnedItems = enhancedReturnedItems;
       }
 
       const issuances = await prisma.issuanceDetail.findMany({
@@ -677,8 +689,11 @@ export class InventoryService {
     filter?: string
   ): Promise<InventoryResponseType> {
     try {
-      const skip = (page - 1) * pageSize;
+      filter = filter === 'All' ? '' : filter;
 
+      const skip = filter ? undefined : (page - 1) * pageSize;
+      const take = filter ? undefined : pageSize;
+      
       const where = search
         ? {
             OR: [
@@ -687,10 +702,6 @@ export class InventoryService {
             ],
           }
         : {};
-
-      const totalCount = await prisma.inventory.count({
-        where: { ...where, status: status as ProductStatus | undefined } as any,
-      });
 
       const inventories = await prisma.inventory.findMany({
         where: { ...where, status: status as ProductStatus | undefined } as any,
@@ -724,6 +735,7 @@ export class InventoryService {
               size: true,
               receiptRef: true,
               status: true,
+              itemId: true,
             },
           },
 
@@ -741,7 +753,7 @@ export class InventoryService {
           createdAt: "desc",
         },
         skip,
-        take: pageSize,
+        take
       });
 
       const processedInventories = inventories.map((inventory) => {
@@ -795,23 +807,21 @@ export class InventoryService {
         });
 
         if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
-          if (returnedQuantity === 0) {
-            inventory.ReturnedItems.forEach((item) => {
-              const matchingItem = inventory.receipts
-                .flatMap((receipt) => receipt.item)
-                .find((i) => i.receiptRef === item.receiptRef);
+          inventory.ReturnedItems.forEach((item) => {
+            const matchingItem = inventory.receipts
+              .flatMap((receipt) => receipt.item)
+              .find((i) => i.id === item.itemId);
 
-              if (matchingItem) {
-                const quantity = 1;
-                const price = parseFloat(matchingItem.price || "0");
+            if (matchingItem) {
+              const quantity = 1;
+              const price = parseFloat(matchingItem.price || "0");
 
-                returnedQuantity += quantity;
-                availableQuantity += quantity;
-                totalQuantity += quantity;
-                grandTotalAmount += quantity * price;
-              }
-            });
-          }
+              returnedQuantity += quantity;
+              availableQuantity += quantity;
+              totalQuantity += quantity;
+              grandTotalAmount += quantity * price;
+            }
+          });
         }
 
         inventory.issuanceDetails.forEach((detail) => {
@@ -863,16 +873,24 @@ export class InventoryService {
         };
       });
 
-      let filteredInventories = null;
+      let filteredInventories = processedInventories;
+      let totalCount = 0;
 
-      filter! && filter !== "All"
-        ? (filteredInventories = processedInventories.filter(
-            (inv) => inv.stockLevel === filter
-          ))
-        : (filteredInventories = processedInventories);
+      if (!filter) {
+        totalCount = await prisma.inventory.count({
+          where: { ...where, status: status as ProductStatus | undefined } as any,
+        });
+      } else {
+        filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
+        totalCount = filteredInventories.length
+      }
+      
+      const paginatedInventories = filter
+      ? filteredInventories.slice((page - 1) * pageSize, page * pageSize)
+      : filteredInventories;
 
       return {
-        data: filteredInventories.filter((inv) => inv.receipts.length > 0),
+        data: paginatedInventories.filter((inv) => inv.receipts.length > 0),
         total: totalCount,
         currentPage: page,
         totalPages: Math.ceil(totalCount / pageSize),
@@ -1030,6 +1048,9 @@ export class InventoryService {
 
   async fetchItemTypes() {
     const inventories = await prisma.inventory.findMany({
+      where: {
+        deletedAt: null
+      },
       select: {
         sizeType: true,
         name: true,
@@ -1072,10 +1093,13 @@ export class InventoryService {
   }
 
   async deleteItem(id: string) {
-    return await prisma.inventory.delete({
+    return await prisma.inventory.update({
       where: {
         id,
       },
+      data: {
+        deletedAt: new Date(),
+      }
     });
   }
 

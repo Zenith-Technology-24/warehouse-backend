@@ -915,14 +915,14 @@ export class IssuanceService {
       where: { issuanceId: issuance.issuanceId },
     });
 
-    const pendingCount = issuances.filter((item) => item.status === "pending");
+    const pendingCount = issuances.filter((item) => item.status === "withdrawn");
 
     if (pendingCount.length === 0) {
       await prisma.issuance.update({
         where: { id: issuance.issuanceId },
         data: {
-          status: "withdrawn",
-          issuanceStatus: "withdrawn",
+          status: "pending",
+          issuanceStatus: "pending",
         },
       });
     }

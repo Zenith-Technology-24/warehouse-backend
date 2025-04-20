@@ -39,6 +39,7 @@ model Inventory {
   issuanceDetails      IssuanceDetail[]
   InventoryTransaction InventoryTransaction[]
   ReturnedItems        ReturnedItems[]
+  deletedAt           DateTime? @map("deleted_at")
 
   @@map("inventories")
 }
