@@ -163,11 +163,13 @@ export class DashboardService {
 
       const stonks = await this.getItemsByStockLevel();
       const users = await this.getUserReports();
+
+      const totalReceived = await prisma.receipt.count();
       return {
-        totalItems,
+        totalItems: totalReceiptItems,
         totalInStock,
         totalIssuedItems,
-        totalReceiptItems,
+        totalReceiptItems: totalReceived,
         totalReturnedItems,
         users,
         ...stonks,

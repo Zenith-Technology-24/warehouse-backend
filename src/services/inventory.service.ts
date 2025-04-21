@@ -84,7 +84,7 @@ export class InventoryService {
       if (!existingInventory) return null;
 
       const query = await prisma.inventory.findUnique({
-        where: { id },
+        where: { id, status: { not: "archived" } },
         include: {
           item: true,
           receipts: {
@@ -689,11 +689,11 @@ export class InventoryService {
     filter?: string
   ): Promise<InventoryResponseType> {
     try {
-      filter = filter === 'All' ? '' : filter;
+      filter = filter === "All" ? "" : filter;
 
       const skip = filter ? undefined : (page - 1) * pageSize;
       const take = filter ? undefined : pageSize;
-      
+
       const where = search
         ? {
             OR: [
@@ -753,7 +753,7 @@ export class InventoryService {
           createdAt: "desc",
         },
         skip,
-        take
+        take,
       });
 
       const processedInventories = inventories.map((inventory) => {
@@ -878,16 +878,21 @@ export class InventoryService {
 
       if (!filter) {
         totalCount = await prisma.inventory.count({
-          where: { ...where, status: status as ProductStatus | undefined } as any,
+          where: {
+            ...where,
+            status: status as ProductStatus | undefined,
+          } as any,
         });
       } else {
-        filteredInventories = processedInventories.filter((inv) => inv.stockLevel === filter)
-        totalCount = filteredInventories.length
+        filteredInventories = processedInventories.filter(
+          (inv) => inv.stockLevel === filter
+        );
+        totalCount = filteredInventories.length;
       }
-      
+
       const paginatedInventories = filter
-      ? filteredInventories.slice((page - 1) * pageSize, page * pageSize)
-      : filteredInventories;
+        ? filteredInventories.slice((page - 1) * pageSize, page * pageSize)
+        : filteredInventories;
 
       return {
         data: paginatedInventories.filter((inv) => inv.receipts.length > 0),
@@ -1049,7 +1054,7 @@ export class InventoryService {
   async fetchItemTypes() {
     const inventories = await prisma.inventory.findMany({
       where: {
-        deletedAt: null
+        deletedAt: null,
       },
       select: {
         sizeType: true,
@@ -1099,7 +1104,7 @@ export class InventoryService {
       },
       data: {
         deletedAt: new Date(),
-      }
+      },
     });
   }
 
