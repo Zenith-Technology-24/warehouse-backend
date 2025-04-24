@@ -216,10 +216,10 @@ export class DashboardService {
       total: number;
     };
     percentages: {
-      highStock: string;
-      midStock: string;
-      lowStock: string;
-      outOfStock: string;
+      highStock: string | number;
+      midStock: string | number;
+      lowStock: string | number;
+      outOfStock: string | number;
     };
   }> {
     try {
@@ -350,7 +350,9 @@ export class DashboardService {
 
       return {
         counts,
-        percentages,
+        percentages: {
+          ...counts
+        },
       };
     } catch (error: any) {
       throw new Error(`Failed to get items by stock level: ${error.message}`);
