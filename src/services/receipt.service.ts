@@ -680,7 +680,6 @@ export class ReceiptService {
             },
             include: {
               IssuanceDetail: true,
-              
             },
           });
 
@@ -850,8 +849,8 @@ export class ReceiptService {
                   unit: true,
                   price: true,
                   amount: true,
-                }
-              }
+                },
+              },
             },
           },
           item: {
@@ -963,6 +962,39 @@ export class ReceiptService {
 
   async archive(id: string): Promise<Receipt> {
     try {
+      // Find the receipt first to ensure it exists
+      const receipt = await prisma.receipt.findUnique({
+        where: { id },
+        include: {
+          item: true,
+        },
+      });
+
+      if (!receipt) {
+        throw new Error("Receipt not found");
+      }
+
+      // Get all item IDs associated with this receipt
+      const itemIds = receipt.item.map((item) => item.id);
+
+      // Check if any of these items have issuance transactions
+      const issuanceTransactions = await prisma.inventoryTransaction.findFirst({
+        where: {
+          itemId: {
+            in: itemIds,
+          },
+          type: "ISSUANCE",
+        },
+      });
+
+      // If issuance transactions exist, prevent archiving
+      if (issuanceTransactions) {
+        throw new Error(
+          "Cannot archive receipt: It has items that have been issued. All issued items must be returned first."
+        );
+      }
+
+      // If no issued items found, archive the receipt
       return await prisma.receipt.update({
         where: { id },
         data: {
