@@ -982,6 +982,26 @@ export class IssuanceService {
   }
 
   async archiveIssuance(id: string) {
+    const currentIssuance = await prisma.issuance.findUnique({
+      where: { id },
+      select: {
+        issuanceDetails: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    // If the issuance has withdrawn items, do not allow archiving
+    if (
+      currentIssuance?.issuanceDetails.some(
+        (detail) => detail.status === "withdrawn"
+      )
+    ) {
+      throw new Error("Cannot archive issuance with withdrawn items");
+    }
+
     return await prisma.issuance.update({
       where: { id },
       data: {
