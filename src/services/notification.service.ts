@@ -84,7 +84,7 @@ export class NotificationService {
                     await prisma.notifications.create({
                       data: {
                         userId: user.id,
-                        dataId: item.id,
+                        dataId: item.receiptId,
                         title: `Stock Expiry Warning`,
                         message,
                       },
