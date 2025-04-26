@@ -39,6 +39,7 @@ model Inventory {
   issuanceDetails      IssuanceDetail[]
   InventoryTransaction InventoryTransaction[]
   ReturnedItems        ReturnedItems[]
+  deletedAt           DateTime? @map("deleted_at")
 
   @@map("inventories")
 }
@@ -226,6 +227,7 @@ model InventoryTransaction {
   amount      String?
   receiptRef  String?
   item        Item?           @relation(fields: [itemId], references: [id])
+  status      ProductStatus @default(active)
 
   @@map("inventory_transactions")
 }

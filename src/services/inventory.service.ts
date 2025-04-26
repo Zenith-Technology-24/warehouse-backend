@@ -1,6 +1,22 @@
 import { Inventory, ProductStatus, SizeType } from "@prisma/client";
 import prisma from "@/generic/prisma";
-import receipt from "@/routes/receipt.route";
+
+import {
+  determineStockLevel,
+  initializeSizeQuantities,
+  createQuantitySummary,
+  formatCurrency,
+  processOriginalInventoryItem,
+  processItems,
+  processReturnedTransactions,
+  processReturnedItems,
+  processIssuanceDetails,
+  processInventoryItems,
+  processWithdrawnIssuance,
+  calculateAvailableQuantities,
+  generateSizeDetailsGroups,
+  processInventoryItems2,
+} from "@/utils/inventoryHelper";
 
 interface CreateInventoryDto {
   name: string;
@@ -80,42 +96,33 @@ export class InventoryService {
       const existingInventory = await prisma.inventory.findUnique({
         where: { id },
       });
-
       if (!existingInventory) return null;
 
       const query = await prisma.inventory.findUnique({
-        where: { id },
+        where: { id, status: { not: "archived" }, deletedAt: null },
         include: {
           item: true,
           receipts: {
+            where: { status: { not: "archived" } },
             include: {
-              item: {
-                where: { inventoryId: id },
-              },
-              user: {
-                select: {
-                  firstname: true,
-                  lastname: true,
-                },
-              },
+              item: { where: { inventoryId: id } },
+              user: { select: { firstname: true, lastname: true } },
             },
           },
           issuance: {
+            where: { status: { not: "archived" } },
             include: {
               user: {
                 select: {
                   firstname: true,
                   lastname: true,
-                  roles: {
-                    select: {
-                      name: true,
-                    },
-                  },
+                  roles: { select: { name: true } },
                 },
               },
             },
           },
           issuanceDetails: {
+            where: { status: { not: "archived" } },
             include: {
               endUser: true,
               issuance: {
@@ -125,46 +132,48 @@ export class InventoryService {
                     select: {
                       firstname: true,
                       lastname: true,
-                      roles: {
-                        select: {
-                          name: true,
-                        },
-                      },
+                      roles: { select: { name: true } },
                     },
                   },
                 },
               },
             },
           },
-
           ReturnedItems: {
+            where: { status: { not: "archived" } },
             select: {
               id: true,
               itemName: true,
               size: true,
               receiptRef: true,
               status: true,
+              itemId: true,
             },
           },
-
           InventoryTransaction: {
+            where: { status: { not: "archived" } },
             select: {
               id: true,
               quantity: true,
               type: true,
               price: true,
               amount: true,
+              size: true,
             },
           },
         },
       });
 
+      if (!query) return null;
+
       const issuanceData = await Promise.all(
         query?.issuanceDetails.map(async (detail) => {
           const inventoryData = await prisma.inventory.findUnique({
-            where: { id: detail.inventoryId || "" },
+            where: {
+              id: detail.inventoryId || "",
+              status: { not: "archived" },
+            },
           });
-
           return {
             ...detail,
             user: detail.issuance.user,
@@ -180,22 +189,24 @@ export class InventoryService {
         issuance: issuanceData,
       };
 
-      if (!inventory) return null;
-
       const items = await prisma.item.findMany({
-        where: { inventoryId: id },
+        where: {
+          inventoryId: id,
+          receipt: {
+            status: {
+              not: "archived",
+            },
+          },
+        },
         include: {
           receipt: {
+            where: { status: { not: "archived" } },
             include: {
               user: {
                 select: {
                   firstname: true,
                   lastname: true,
-                  roles: {
-                    select: {
-                      name: true,
-                    },
-                  },
+                  roles: { select: { name: true } },
                 },
               },
             },
@@ -203,132 +214,31 @@ export class InventoryService {
         },
       });
 
-      const quantitySummary = {
-        totalQuantity: 0,
-        availableQuantity: 0,
-        pendingQuantity: 0,
-        pendingIssuanceQuantity: 0,
-        withdrawnQuantity: 0,
-        returnedQuantity: 0,
-        grandTotalAmount: 0,
-      };
+      const quantitySummary = createQuantitySummary();
+      const sizeQuantities = {};
 
-      const sizeQuantities: Record<
-        string,
-        {
-          pending: number;
-          available: number;
-          withdrawn: number;
-          total: number;
-          returned: number;
-        }
-      > = {};
+      processOriginalInventoryItem(inventory, sizeQuantities, quantitySummary);
 
-      if (inventory.item) {
-        const quantity = parseInt(inventory.item.quantity || "0", 10);
-        const size = inventory.item.size || "No Size";
-        const price = parseFloat(inventory.item.price || "0");
-        const amount = quantity * price;
-
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-            total: 0,
-            returned: 0,
-          };
-        }
-
-        sizeQuantities[size].available += quantity;
-        quantitySummary.grandTotalAmount += amount;
-      }
-
-      items.forEach((item) => {
-        const quantity = parseInt(item.quantity || "0", 10);
-        const size = item.size || "No Size";
-        const price = parseFloat(item.price || "0");
-        const amount = quantity * price;
-
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-            total: 0,
-            returned: 0,
-          };
-        }
-
-        sizeQuantities[size].available += quantity;
-
-        if (item.receiptId) {
-          quantitySummary.grandTotalAmount += amount;
-        }
-      });
+      processItems(items, sizeQuantities, quantitySummary);
 
       if (inventory.InventoryTransaction) {
-        inventory.InventoryTransaction.forEach((transaction) => {
-          if (transaction.type === "RETURNED") {
-            const quantity = parseInt(transaction.quantity || "0", 10);
-            const price = parseFloat(transaction.price || "0");
-            const size = transaction.size || "No Size";
-
-            if (!sizeQuantities[size]) {
-              sizeQuantities[size] = {
-                pending: 0,
-                available: 0,
-                withdrawn: 0,
-                total: 0,
-                returned: 0,
-              };
-            }
-
-            sizeQuantities[size].returned += quantity;
-            sizeQuantities[size].available += quantity;
-            quantitySummary.returnedQuantity += quantity;
-            quantitySummary.grandTotalAmount += quantity * price;
-          }
-        });
+        processReturnedTransactions(
+          inventory.InventoryTransaction,
+          sizeQuantities,
+          quantitySummary
+        );
       }
 
-      if (
-        inventory.ReturnedItems &&
-        inventory.ReturnedItems.length > 0 &&
-        quantitySummary.returnedQuantity === 0
-      ) {
-        inventory.ReturnedItems.forEach((item) => {
-          const size = item.size || "No Size";
-
-          if (!sizeQuantities[size]) {
-            sizeQuantities[size] = {
-              pending: 0,
-              available: 0,
-              withdrawn: 0,
-              total: 0,
-              returned: 0,
-            };
-          }
-
-          const quantity = 1;
-          sizeQuantities[size].returned += quantity;
-          sizeQuantities[size].available += quantity;
-          quantitySummary.returnedQuantity += quantity;
-
-          const originalItem = items.find(
-            (i) => i.receiptRef === item.receiptRef
-          );
-          const price = originalItem
-            ? parseFloat(originalItem.price || "0")
-            : 0;
-          quantitySummary.grandTotalAmount += quantity * price;
-        });
+      if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
+        inventory.ReturnedItems = await processReturnedItems(
+          inventory.ReturnedItems,
+          sizeQuantities,
+          quantitySummary
+        );
       }
 
       const issuances = await prisma.issuanceDetail.findMany({
-        where: {
-          inventoryId: inventory.id,
-        },
+        where: { inventoryId: inventory.id, status: { not: "archived" } },
         include: {
           issuance: {
             include: {
@@ -336,11 +246,7 @@ export class InventoryService {
                 select: {
                   firstname: true,
                   lastname: true,
-                  roles: {
-                    select: {
-                      name: true,
-                    },
-                  },
+                  roles: { select: { name: true } },
                 },
               },
             },
@@ -350,12 +256,14 @@ export class InventoryService {
 
       const issuance = await Promise.all(
         issuances.map(async (detail) => {
-          const itemData = await prisma.item.findFirst({
-            where: { issuanceDetailId: detail.id || "" },
-          });
-          const issuanceData = await prisma.issuance.findUnique({
-            where: { id: detail.issuanceId || "" },
-          });
+          const [itemData, issuanceData] = await Promise.all([
+            prisma.item.findFirst({
+              where: { issuanceDetailId: detail.id || "" },
+            }),
+            prisma.issuance.findUnique({
+              where: { id: detail.issuanceId || "" },
+            }),
+          ]);
 
           return {
             ...detail,
@@ -367,301 +275,40 @@ export class InventoryService {
         })
       );
 
-      issuance?.forEach((detail) => {
-        const quantity = parseInt(detail.quantity || "0", 10);
+      processIssuanceDetails(issuance || [], sizeQuantities, quantitySummary);
 
-        const size = detail?.size || "No Size";
-        const price = parseFloat(detail.price || "0");
-        const amount = quantity * price;
+      processInventoryItems(items, sizeQuantities);
 
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-            total: 0,
-            returned: 0,
-          };
-        }
+      processWithdrawnIssuance(
+        inventory.issuanceDetails,
+        items,
+        sizeQuantities,
+        inventory
+      );
 
-        if (detail.status === "pending") {
-          sizeQuantities[size].pending += quantity;
-          quantitySummary.pendingIssuanceQuantity += quantity;
-          quantitySummary.pendingQuantity += quantity;
-        } else if (detail.status === "withdrawn") {
-          sizeQuantities[size].withdrawn += quantity;
-          quantitySummary.withdrawnQuantity += quantity;
-          quantitySummary.grandTotalAmount -= amount;
-        }
-      });
-
-      items.forEach((item) => {
-        if (item.issuanceDetailId) {
-          return;
-        }
-
-        const quantity = parseInt(item.quantity || "", 10);
-        const size = item.size || "No Size";
-
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-            total: 0,
-            returned: 0,
-          };
-        }
-
-        sizeQuantities[size].total += quantity;
-      });
-
-      if (
-        inventory.issuanceDetails &&
-        inventory.issuanceDetails.status === "withdrawn"
-      ) {
-        const quantity = parseInt(
-          inventory.issuanceDetails.quantity || "0",
-          10
-        );
-
-        const itemForSize =
-          items.find((item) => item.receipt?.status === "active") ||
-          inventory.item;
-
-        const size = itemForSize?.size || "No Size";
-
-        if (!sizeQuantities[size]) {
-          sizeQuantities[size] = {
-            pending: 0,
-            available: 0,
-            withdrawn: 0,
-            total: 0,
-            returned: 0,
-          };
-        }
-
-        sizeQuantities[size].withdrawn += quantity;
-      }
-
-      let totalAvailable = 0;
-
-      Object.keys(sizeQuantities).forEach((size) => {
-        const finalAvailable = Math.max(
-          0,
-          sizeQuantities[size].total -
-            sizeQuantities[size].withdrawn +
-            sizeQuantities[size].returned
-        );
-        sizeQuantities[size].available = finalAvailable;
-
-        totalAvailable += finalAvailable;
-      });
+      const totalAvailable = calculateAvailableQuantities(sizeQuantities);
 
       quantitySummary.availableQuantity =
         totalAvailable - quantitySummary.pendingQuantity;
       quantitySummary.totalQuantity = totalAvailable;
 
-      const sizeDetails: Array<{
-        size: string;
-        pairs: string;
-        status: string;
-        type: "pending" | "available" | "withdrawn" | "returned";
-      }> = [];
+      const groupedSizeDetails = generateSizeDetailsGroups(sizeQuantities);
 
-      function determineStockLevel(quantity: number): string {
-        if (quantity <= 0) return "Out of Stock";
-        if (quantity <= 30) return "Low Stock";
-        if (quantity <= 98) return "Mid Stock";
-        return "High Stock";
-      }
-
-      Object.entries(sizeQuantities).forEach(([size, quantities]) => {
-        if (quantities.pending > 0) {
-          const stockLevel = determineStockLevel(quantities.pending);
-          sizeDetails.push({
-            size,
-            pairs: String(quantities.pending),
-            status: stockLevel,
-            type: "pending",
-          });
-        }
-
-        if (quantities.available > 0) {
-          const stockLevel = determineStockLevel(quantities.available);
-          sizeDetails.push({
-            size,
-            pairs: String(quantities.available),
-            status: stockLevel,
-            type: "available",
-          });
-        }
-
-        if (quantities.returned > 0) {
-          const stockLevel = determineStockLevel(quantities.returned);
-          sizeDetails.push({
-            size,
-            pairs: String(quantities.returned),
-            status: stockLevel,
-            type: "returned",
-          });
-        }
-      });
-
-      const groupedSizeDetails = {
-        pending: sizeDetails
-          .filter((detail) => detail.type === "pending")
-          .map(({ size, pairs, status }) => ({ size, pairs, status })),
-        available: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          const pairs =
-            quantities.total -
-            quantities.pending -
-            quantities.withdrawn +
-            quantities.returned;
-          const availablePairs = Math.max(0, pairs);
-          const stockLevel = determineStockLevel(availablePairs);
-          return {
-            size,
-            pairs: String(availablePairs),
-            status: stockLevel,
-          };
-        }),
-        total: Object.entries(sizeQuantities).map(([size, quantities]) => {
-          const totalPairs =
-            quantities.total - quantities.withdrawn + quantities.returned;
-          const stockLevel = determineStockLevel(totalPairs);
-          return {
-            size,
-            pairs: String(totalPairs),
-            status: stockLevel,
-          };
-        }),
-
-        returned: Object.entries(sizeQuantities)
-          .filter(([_, quantities]) => quantities.returned > 0)
-          .map(([size, quantities]) => {
-            const stockLevel = determineStockLevel(quantities.returned);
-            return {
-              size,
-              pairs: String(quantities.returned),
-              status: stockLevel,
-            };
-          }),
-      };
-
-      const newItems = await Promise.all(
-        items.map(async (item) => {
-          const receiptItems = await prisma.inventoryTransaction.findMany({
-            where: {
-              itemId: item.id,
-              inventoryId: id,
-              type: "RECEIPT",
-            },
-          });
-
-          const issuanceDetails = [];
-
-          const issuedItems = await prisma.inventoryTransaction.findMany({
-            where: {
-              itemId: item.id,
-              inventoryId: id,
-              type: "ISSUANCE",
-              issuanceId: {
-                not: null,
-              },
-            },
-          });
-
-          const returnedItems = await prisma.inventoryTransaction.findMany({
-            where: {
-              itemId: item.id,
-              inventoryId: id,
-              type: "RETURNED",
-            },
-          });
-
-          const totalReturnedItems = returnedItems.reduce(
-            (acc, item) => acc + parseInt(item.quantity || "0", 10),
-            0
-          );
-
-          for (let i = 0; i < issuedItems.length; i++) {
-            const issuedItem = issuedItems[i];
-            const issuanceDetail = await prisma.issuanceDetail.findUnique({
-              where: {
-                id: issuedItem.issuanceId || "",
-                status: {
-                  not: "pending",
-                },
-              },
-            });
-
-            if (issuanceDetail) {
-              issuanceDetails.push({ ...issuedItem, ...issuanceDetail });
-            }
-          }
-
-          const totalReceiptItems = receiptItems.reduce(
-            (acc, item) => acc + parseInt(item.quantity || "0", 10),
-            0
-          );
-
-          const totalIssuedItems = issuanceDetails.reduce(
-            (acc, item) => acc + parseInt(item.quantity || "0", 10),
-            0
-          );
-
-          const adjustedIssuedItems = Math.max(
-            0,
-            totalIssuedItems - totalReturnedItems
-          );
-
-          const totalIssuedItemsAmount = issuanceDetails.reduce(
-            (acc, item) => acc + parseFloat(item.amount || "0"),
-            0
-          );
-
-          const returnedItemsAmount = returnedItems.reduce(
-            (acc, item) => acc + parseFloat(item.amount || "0"),
-            0
-          );
-
-          return {
-            ...item,
-            totalReceiptItems,
-            totalIssuedItems: adjustedIssuedItems,
-            totalReturnedItems,
-            quantity: `${adjustedIssuedItems} / ${totalReceiptItems}`,
-            is_consumed: adjustedIssuedItems >= totalReceiptItems,
-            amount:
-              Number(item.amount) -
-              totalIssuedItemsAmount +
-              returnedItemsAmount,
-          };
-        })
-      );
+      const newItems = await processInventoryItems2(items, id);
 
       return {
         ...inventory,
         quantitySummary: {
           ...quantitySummary,
           returnedQuantity: quantitySummary.returnedQuantity,
-          grandTotalAmount: new Intl.NumberFormat("en-EN", {
-            maximumFractionDigits: 2,
-          }).format(quantitySummary.grandTotalAmount),
+          grandTotalAmount: formatCurrency(Math.max(0, quantitySummary.grandTotalAmount)),
         },
         sizeDetails: groupedSizeDetails,
         detailedQuantities: sizeQuantities,
-        issuance: issuance.filter((iss) => {
-          return iss.status !== "withdrawn";
-        }),
+        issuance: issuance.filter((iss) => iss.status !== "withdrawn"),
         items: newItems
-          .filter((item) => {
-            return item.issuanceDetailId == null;
-          })
-          .filter((item) => {
-            return !item.is_consumed;
-          }),
+          .filter((item) => item.issuanceDetailId == null)
+          .filter((item) => !item.is_consumed),
         receipt: undefined,
       };
     } catch (error: any) {
@@ -677,20 +324,19 @@ export class InventoryService {
     filter?: string
   ): Promise<InventoryResponseType> {
     try {
-      const skip = (page - 1) * pageSize;
+      filter = filter === "All" ? "" : filter;
+
+      const skip = filter ? undefined : (page - 1) * pageSize;
+      const take = filter ? undefined : pageSize;
 
       const where = search
         ? {
-            OR: [
-              { name: { contains: search, mode: "insensitive" } },
-              { unit: { contains: search, mode: "insensitive" } },
-            ],
-          }
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { unit: { contains: search, mode: "insensitive" } },
+          ],
+        }
         : {};
-
-      const totalCount = await prisma.inventory.count({
-        where: { ...where, status: status as ProductStatus | undefined } as any,
-      });
 
       const inventories = await prisma.inventory.findMany({
         where: { ...where, status: status as ProductStatus | undefined } as any,
@@ -724,6 +370,7 @@ export class InventoryService {
               size: true,
               receiptRef: true,
               status: true,
+              itemId: true,
             },
           },
 
@@ -734,6 +381,7 @@ export class InventoryService {
               type: true,
               price: true,
               amount: true,
+
             },
           },
         },
@@ -741,7 +389,7 @@ export class InventoryService {
           createdAt: "desc",
         },
         skip,
-        take: pageSize,
+        take,
       });
 
       const processedInventories = inventories.map((inventory) => {
@@ -764,8 +412,11 @@ export class InventoryService {
         let currentPrice = 0;
 
         inventory.receipts.forEach((receipt) => {
+          // Skip archived receipts
+          if (receipt.status === "archived") return;
+
           receipt.item
-            .filter((i) => i.issuanceDetailId === null)
+            .filter((i) => (i.issuanceDetailId === null))
             .forEach((item) => {
               if (item.inventoryId === inventory.id) {
                 const quantity = parseInt(item.quantity || "0", 10);
@@ -782,6 +433,9 @@ export class InventoryService {
         });
 
         inventory.InventoryTransaction.forEach((transaction) => {
+          // Skip archived transactions
+          if (transaction.status === "archived") return;
+
           const quantity = parseInt(transaction.quantity || "0", 10);
           const price = parseFloat(transaction.price || "0");
 
@@ -795,26 +449,30 @@ export class InventoryService {
         });
 
         if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
-          if (returnedQuantity === 0) {
-            inventory.ReturnedItems.forEach((item) => {
-              const matchingItem = inventory.receipts
-                .flatMap((receipt) => receipt.item)
-                .find((i) => i.receiptRef === item.receiptRef);
+          inventory.ReturnedItems.forEach((item) => {
+            // Skip archived returned items
+            if (item.status === "archived") return;
 
-              if (matchingItem) {
-                const quantity = 1;
-                const price = parseFloat(matchingItem.price || "0");
+            const matchingItem = inventory.receipts
+              .flatMap((receipt) => { return { ...receipt.item, status: receipt.status } })
+              .find((i) => i.id === item.itemId && i.status !== "archived");
 
-                returnedQuantity += quantity;
-                availableQuantity += quantity;
-                totalQuantity += quantity;
-                grandTotalAmount += quantity * price;
-              }
-            });
-          }
+            if (matchingItem) {
+              const quantity = 1;
+              const price = parseFloat(matchingItem.price || "0");
+
+              returnedQuantity += quantity;
+              availableQuantity += quantity;
+              totalQuantity += quantity;
+              grandTotalAmount += quantity * price;
+            }
+          });
         }
 
         inventory.issuanceDetails.forEach((detail) => {
+          // Skip archived issuance details
+          if (detail.status === "archived") return;
+
           const issuedQuantity = parseInt(detail.quantity || "0", 10);
           if (detail.status === "pending") {
             pendingIssuanceQuantity += issuedQuantity;
@@ -826,13 +484,16 @@ export class InventoryService {
         });
 
         if (inventory.issuance && inventory.issuance.status === "withdrawn") {
-          const issuedQuantity = parseInt(
-            inventory.issuance.quantity || "0",
-            10
-          );
+          // Skip if issuance is archived
+          if (inventory.issuance.status === "withdrawn") {
+            const issuedQuantity = parseInt(
+              inventory.issuance.quantity || "0",
+              10
+            );
 
-          withdrawnQuantity += issuedQuantity;
-          availableQuantity -= issuedQuantity;
+            withdrawnQuantity += issuedQuantity;
+            availableQuantity -= issuedQuantity;
+          }
         }
 
         availableQuantity = Math.max(0, availableQuantity);
@@ -863,16 +524,29 @@ export class InventoryService {
         };
       });
 
-      let filteredInventories = null;
+      let filteredInventories = processedInventories;
+      let totalCount = 0;
 
-      filter! && filter !== "All"
-        ? (filteredInventories = processedInventories.filter(
-            (inv) => inv.stockLevel === filter
-          ))
-        : (filteredInventories = processedInventories);
+      if (!filter) {
+        totalCount = await prisma.inventory.count({
+          where: {
+            ...where,
+            status: status as ProductStatus | undefined,
+          } as any,
+        });
+      } else {
+        filteredInventories = processedInventories.filter(
+          (inv) => inv.stockLevel === filter
+        );
+        totalCount = filteredInventories.length;
+      }
+
+      const paginatedInventories = filter
+        ? filteredInventories.slice((page - 1) * pageSize, page * pageSize)
+        : filteredInventories;
 
       return {
-        data: filteredInventories.filter((inv) => inv.receipts.length > 0),
+        data: paginatedInventories.filter((inv) => inv.receipts.length > 0),
         total: totalCount,
         currentPage: page,
         totalPages: Math.ceil(totalCount / pageSize),
@@ -889,29 +563,30 @@ export class InventoryService {
     search?: string
   ) {
     try {
-      const where = {
+      const where: any = {
         createdAt: {
           gte: new Date(start_date),
           lte: new Date(end_date),
         },
-        ...(search
-          ? {
-              OR: [
-                { name: { contains: search, mode: "insensitive" } },
-                { unit: { contains: search, mode: "insensitive" } },
-              ],
-            }
-          : {}),
       };
 
+      if (search) {
+        where.OR = [
+          { name: { contains: search, mode: "insensitive" } },
+          { unit: { contains: search, mode: "insensitive" } },
+        ];
+      }
+
+      if (status) {
+        where.status = status;
+      }
+
       const inventories = await prisma.inventory.findMany({
-        where: { ...where, status: status as ProductStatus | undefined } as any,
+        where,
         include: {
           item: true,
           receipts: {
-            include: {
-              item: true,
-            },
+            include: { item: true },
           },
           issuance: {
             select: {
@@ -925,6 +600,27 @@ export class InventoryService {
             select: {
               quantity: true,
               status: true,
+              issuanceId: true,
+            },
+          },
+          ReturnedItems: {
+            select: {
+              id: true,
+              itemName: true,
+              size: true,
+              receiptRef: true,
+              status: true,
+              itemId: true,
+            },
+          },
+          InventoryTransaction: {
+            select: {
+              id: true,
+              quantity: true,
+              type: true,
+              price: true,
+              amount: true,
+              status: true,
             },
           },
         },
@@ -933,84 +629,100 @@ export class InventoryService {
         },
       });
 
-      const processedInventories = inventories.map((inventory) => {
-        let totalQuantity = 0;
-        let grandTotalAmount = 0;
+      const processed = await Promise.all(
+        inventories.map(async (inventory) => {
+          let totalQuantity = 0;
+          let availableQuantity = 0;
+          let withdrawnQuantity = 0;
+          let pendingQuantity = 0;
+          let returnedQuantity = 0;
+          let grandTotalAmount = 0;
 
-        if (inventory.item) {
-          const quantity = parseInt(inventory.item.quantity || "0", 10);
-          const price = parseFloat(inventory.item.price || "0");
+          const inventoryDetails = await this.getInventoryById(inventory.id);
+          pendingQuantity = inventoryDetails?.quantitySummary?.pendingQuantity as any;
 
-          totalQuantity += quantity;
-          grandTotalAmount += quantity * price;
-        }
+          const itemQty = parseInt(inventory.item?.quantity || "0", 10);
+          const itemPrice = parseFloat(inventory.item?.price || "0");
 
-        inventory.receipts.forEach((receipt) => {
-          receipt.item.forEach((item) => {
-            if (item.inventoryId === inventory.id) {
-              const quantity = parseInt(item.quantity || "0", 10);
-              const price = parseFloat(item.price || "0");
-              if (receipt.status !== "pending") {
-                totalQuantity += quantity;
-                grandTotalAmount += quantity * price;
-              }
+          totalQuantity += itemQty;
+          availableQuantity += itemQty;
+          grandTotalAmount += itemQty * itemPrice;
+
+          let currentPrice = 0;
+
+          inventory.receipts.forEach((receipt) => {
+            if (receipt.status === "archived") return;
+            receipt.item
+              .filter((i) => i.issuanceDetailId === null)
+              .forEach((i) => {
+                if (i.inventoryId === inventory.id) {
+                  const qty = parseInt(i.quantity || "0", 10);
+                  currentPrice = parseFloat(i.price || "0");
+                  totalQuantity += qty;
+                  availableQuantity += qty;
+                  grandTotalAmount += qty * currentPrice;
+                }
+              });
+          });
+
+          inventory.InventoryTransaction.forEach((tx) => {
+            if (tx.status === "archived") return;
+            const qty = parseInt(tx.quantity || "0", 10);
+            const price = parseFloat(tx.price || "0");
+
+            if (tx.type === "RETURNED") {
+              returnedQuantity += qty;
+              availableQuantity += qty;
+              totalQuantity += qty;
+              grandTotalAmount += qty * price;
             }
           });
-        });
 
-        inventory.issuanceDetails.forEach((detail) => {
-          if (detail.status === "withdrawn") {
-            const issuedQuantity = parseInt(detail.quantity || "0", 10);
-            const price = inventory.item
-              ? parseFloat(inventory.item.price || "0")
-              : 0;
+          inventory.issuanceDetails.forEach((detail) => {
+            if (detail.status === "archived") return;
+            const qty = parseInt(detail.quantity || "0", 10);
 
-            totalQuantity -= issuedQuantity;
-            grandTotalAmount -= issuedQuantity * price;
+            if (detail.status === "withdrawn") {
+              withdrawnQuantity += qty;
+              availableQuantity -= qty;
+              grandTotalAmount -= qty * currentPrice;
+            }
+          });
+
+          if (inventory.issuance?.status === "withdrawn") {
+            const qty = parseInt(inventory.issuance.quantity || "0", 10);
+            withdrawnQuantity += qty;
+            availableQuantity -= qty;
           }
-        });
 
-        if (inventory.issuance && inventory.issuance.status === "withdrawn") {
-          const issuedQuantity = parseInt(
-            inventory.issuance.quantity || "0",
-            10
-          );
-          const price = inventory.item
-            ? parseFloat(inventory.item.price || "0")
-            : 0;
+          availableQuantity = Math.max(0, availableQuantity);
+          grandTotalAmount = Math.max(0, grandTotalAmount);
+          totalQuantity = Math.max(0, totalQuantity - withdrawnQuantity);
 
-          totalQuantity -= issuedQuantity;
-          grandTotalAmount -= issuedQuantity * price;
-        }
-
-        totalQuantity = Math.max(0, totalQuantity);
-        grandTotalAmount = Math.max(0, grandTotalAmount);
-
-        let stockLevel = "Out of Stock";
-        if (totalQuantity > 0) {
-          if (totalQuantity <= 100) {
-            stockLevel = "Low Stock";
-          } else if (totalQuantity <= 499) {
-            stockLevel = "Mid Stock";
-          } else {
-            stockLevel = "High Stock";
+          let stockLevel = "Out of Stock";
+          if (totalQuantity > 0) {
+            if (totalQuantity <= 100) stockLevel = "Low Stock";
+            else if (totalQuantity <= 499) stockLevel = "Mid Stock";
+            else stockLevel = "High Stock";
           }
-        }
 
-        return {
-          ...inventory,
-          totalQuantity,
-          stockLevel,
-          grandTotalAmount: new Intl.NumberFormat("en-EN", {
-            maximumFractionDigits: 2,
-          }).format(grandTotalAmount),
-        };
-      });
+          return {
+            ...inventory,
+            totalQuantity,
+            availableQuantity,
+            returnedQuantity,
+            pendingQuantity,
+            stockLevel,
+            grandTotalAmount: new Intl.NumberFormat("en-EN", {
+              maximumFractionDigits: 2,
+            }).format(grandTotalAmount),
+          };
+        })
+      )
 
-      return processedInventories;
-    } catch (error) {
-      console.error("error fetching activity logs", error);
-      throw error;
+      return processed.filter((inv) => inv?.receipts?.length > 0);
+    } catch (err: any) {
+      throw new Error(`Failed to export inventories: ${err.message}`);
     }
   }
 
@@ -1030,6 +742,9 @@ export class InventoryService {
 
   async fetchItemTypes() {
     const inventories = await prisma.inventory.findMany({
+      where: {
+        deletedAt: null,
+      },
       select: {
         sizeType: true,
         name: true,
@@ -1072,9 +787,12 @@ export class InventoryService {
   }
 
   async deleteItem(id: string) {
-    return await prisma.inventory.delete({
+    return await prisma.inventory.update({
       where: {
         id,
+      },
+      data: {
+        deletedAt: new Date(),
       },
     });
   }

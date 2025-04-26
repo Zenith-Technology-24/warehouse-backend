@@ -41,7 +41,7 @@ export class ReceiptService {
   public async getCurrentReceipt(
     id: string,
     inventoryId: string,
-    itemId: string,
+    itemId: string
   ): Promise<CurrentReceipt | null> {
     try {
       const [receipts] = await Promise.all([
@@ -102,8 +102,8 @@ export class ReceiptService {
               itemId,
               type: "ISSUANCE",
               issuanceId: {
-                not: null
-              }
+                not: null,
+              },
             },
           });
 
@@ -131,7 +131,6 @@ export class ReceiptService {
           }, 0);
 
           const totalIssuedQuantity = issuances.reduce((acc, item) => {
-
             return acc + Number(item.quantity || "0");
           }, 0);
 
@@ -236,7 +235,6 @@ export class ReceiptService {
             });
 
             if (existingInventory) {
-              // Create item for existing inventory
               const createdItem = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -255,7 +253,6 @@ export class ReceiptService {
                 },
               });
 
-              // Update inventory quantity
               await tx.inventory.update({
                 where: { id: existingInventory.id },
                 data: {
@@ -269,7 +266,6 @@ export class ReceiptService {
                 },
               });
 
-              // Create inventory transaction for existing inventory
               await tx.inventoryTransaction.create({
                 data: {
                   inventoryId: existingInventory.id,
@@ -282,7 +278,6 @@ export class ReceiptService {
                 },
               });
             } else {
-              // Create new inventory
               const inventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -295,7 +290,6 @@ export class ReceiptService {
                 },
               });
 
-              // Create item for new inventory
               const createdItem = await tx.item.create({
                 data: {
                   item_name: inventoryItem.name,
@@ -314,7 +308,6 @@ export class ReceiptService {
                 },
               });
 
-              // Create inventory transaction for new inventory
               await tx.inventoryTransaction.create({
                 data: {
                   inventoryId: inventory.id,
@@ -354,19 +347,16 @@ export class ReceiptService {
       }
 
       const updatedReceipt = await prisma.$transaction(async (tx) => {
-        // 1. Delete all existing inventory transactions for this receipt
         await tx.inventoryTransaction.deleteMany({
           where: { receiptId: id },
         });
 
-        // 2. Delete all existing items
         for (const item of existingReceipt.item) {
           await tx.item.delete({
             where: { id: item.id },
           });
         }
 
-        // 3. Disconnect all inventories
         await tx.receipt.update({
           where: { id },
           data: {
@@ -378,7 +368,6 @@ export class ReceiptService {
           },
         });
 
-        // 4. Update the receipt with new data
         const receipt = await tx.receipt.update({
           where: { id },
           data: {
@@ -388,7 +377,6 @@ export class ReceiptService {
           },
         });
 
-        // 5. Process inventory items and create new transactions
         if (data.inventory && data.inventory.length > 0) {
           for (const inventoryItem of data.inventory) {
             const existingInventory = await tx.inventory.findFirst({
@@ -428,7 +416,6 @@ export class ReceiptService {
                 },
               });
 
-              // Create inventory transaction for the updated inventory
               await tx.inventoryTransaction.create({
                 data: {
                   inventoryId: inventory.id,
@@ -441,7 +428,6 @@ export class ReceiptService {
                 },
               });
             } else {
-              // Create new inventory if it doesn't exist
               const newInventory = await tx.inventory.create({
                 data: {
                   name: inventoryItem.name,
@@ -471,7 +457,6 @@ export class ReceiptService {
                 },
               });
 
-              // Create inventory transaction for the new inventory
               await tx.inventoryTransaction.create({
                 data: {
                   inventoryId: newInventory.id,
@@ -570,7 +555,7 @@ export class ReceiptService {
             const currentReceipt = await this.getCurrentReceipt(
               item.receiptId || "",
               item.inventoryId || "",
-              item.id,
+              item.id
             );
 
             if (!currentReceipt?.data.length) {
@@ -692,7 +677,6 @@ export class ReceiptService {
               issuanceDetailId: {
                 not: null,
               },
-              
             },
             include: {
               IssuanceDetail: true,
@@ -713,11 +697,13 @@ export class ReceiptService {
             return acc + Number(item.quantity || "0");
           }, 0);
 
-          const totalIssuedQuantity = issuedItems.filter(item => {
-            return item.IssuanceDetail?.status === "withdrawn";
-          }).reduce((acc, item) => {
-            return acc + Number(item.quantity || "0");
-          }, 0);
+          const totalIssuedQuantity = issuedItems
+            .filter((item) => {
+              return item.IssuanceDetail?.status === "withdrawn";
+            })
+            .reduce((acc, item) => {
+              return acc + Number(item.quantity || "0");
+            }, 0);
 
           const remainingQuantity = Math.max(
             0,
@@ -750,7 +736,6 @@ export class ReceiptService {
               }
             }
           }
-          
 
           return {
             ...receipt,
@@ -812,7 +797,6 @@ export class ReceiptService {
     }
   }
 
-
   async export(
     start_date: string,
     end_date: string,
@@ -844,7 +828,7 @@ export class ReceiptService {
             }
           : {}),
       };
-  
+
       const receipts = await prisma.receipt.findMany({
         where: { ...where, status } as any,
         include: {
@@ -855,6 +839,18 @@ export class ReceiptService {
               status: true,
               sizeType: true,
               unit: true,
+              item: {
+                select: {
+                  location: true,
+                  size: true,
+                  quantity: true,
+                  expiryDate: true,
+                  item_name: true,
+                  unit: true,
+                  price: true,
+                  amount: true,
+                },
+              },
             },
           },
           item: {
@@ -882,13 +878,13 @@ export class ReceiptService {
           createdAt: "desc",
         },
       });
-  
+
       const enrichedReceipts = await Promise.all(
         receipts.map(async (receipt) => {
           const receiptItems = await prisma.item.findMany({
             where: { receiptId: receipt.id },
           });
-  
+
           const issuedItems = await prisma.item.findMany({
             where: {
               receiptRef: receipt.issuanceDirective,
@@ -898,17 +894,17 @@ export class ReceiptService {
               IssuanceDetail: true,
             },
           });
-  
+
           const totalReceiptQuantity = receiptItems.reduce(
             (acc, item) => acc + Number(item.quantity || "0"),
             0
           );
-  
+
           const totalIssuedQuantity = issuedItems.reduce(
             (acc, item) => acc + Number(item.quantity || "0"),
             0
           );
-  
+
           const remainingQuantity = Math.max(
             0,
             totalReceiptQuantity - totalIssuedQuantity
@@ -940,11 +936,11 @@ export class ReceiptService {
               }
             }
           }
-          
+
           const totalAmount = receipt.item.reduce((sum, inv) => {
-            return sum + (parseFloat(inv.amount || "0"));
+            return sum + parseFloat(inv.amount || "0");
           }, 0);
-  
+
           return {
             ...receipt,
             max_quantity: totalReceiptQuantity,
@@ -957,16 +953,48 @@ export class ReceiptService {
           };
         })
       );
-      
+
       return enrichedReceipts;
     } catch (error: any) {
       throw new Error(`Failed to get receipts: ${error.message}`);
     }
   }
-  
 
   async archive(id: string): Promise<Receipt> {
     try {
+      // Find the receipt first to ensure it exists
+      const receipt = await prisma.receipt.findUnique({
+        where: { id },
+        include: {
+          item: true,
+        },
+      });
+
+      if (!receipt) {
+        throw new Error("Receipt not found");
+      }
+
+      // Get all item IDs associated with this receipt
+      const itemIds = receipt.item.map((item) => item.id);
+
+      // Check if any of these items have issuance transactions
+      const issuanceTransactions = await prisma.inventoryTransaction.findFirst({
+        where: {
+          itemId: {
+            in: itemIds,
+          },
+          type: "ISSUANCE",
+        },
+      });
+
+      // If issuance transactions exist, prevent archiving
+      if (issuanceTransactions) {
+        throw new Error(
+          "Cannot archive receipt: It has items that have been issued. All issued items must be returned first."
+        );
+      }
+
+      // If no issued items found, archive the receipt
       return await prisma.receipt.update({
         where: { id },
         data: {
