@@ -144,8 +144,8 @@ export class IssuanceService {
                     },
                     endUser: createdEndUser
                       ? {
-                        connect: { id: createdEndUser.id },
-                      }
+                          connect: { id: createdEndUser.id },
+                        }
                       : undefined,
                   },
                 });
@@ -247,11 +247,7 @@ export class IssuanceService {
     }
   }
 
-  async update(
-    id: string,
-    data: CreateIssuanceDto,
-    user: User
-  ) {
+  async update(id: string, data: CreateIssuanceDto, user: User) {
     try {
       const issuance = await prisma.$transaction(
         async (tx) => {
@@ -393,8 +389,8 @@ export class IssuanceService {
                       },
                       endUser: createdEndUser
                         ? {
-                          connect: { id: createdEndUser.id },
-                        }
+                            connect: { id: createdEndUser.id },
+                          }
                         : undefined,
                     },
                   });
@@ -519,10 +515,10 @@ export class IssuanceService {
 
       const where = search
         ? {
-          OR: [
-            { issuanceDirective: { contains: search, mode: "insensitive" } },
-          ],
-        }
+            OR: [
+              { issuanceDirective: { contains: search, mode: "insensitive" } },
+            ],
+          }
         : {};
 
       const statusFilter = status === "all" ? undefined : status;
@@ -608,12 +604,12 @@ export class IssuanceService {
         },
         ...(search
           ? {
-            OR: [
-              {
-                issuanceDirective: { contains: search, mode: "insensitive" },
-              },
-            ],
-          }
+              OR: [
+                {
+                  issuanceDirective: { contains: search, mode: "insensitive" },
+                },
+              ],
+            }
           : {}),
       };
 
@@ -676,30 +672,69 @@ export class IssuanceService {
     }
   }
 
-  async getIssuanceById(id: string) {
+  async export(
+    start_date: string,
+    end_date: string,
+    status?: string,
+    search?: string
+  ) {
     try {
-      const issuance = await prisma.issuance.findUnique({
-        where: { id },
-        select: {
-          documentNo: true,
-          issuanceDirective: true,
-          issuanceDate: true,
-          validityDate: true,
-          issuanceStatus: true,
-          createdAt: true,
+      const where = {
+        issuanceDate: {
+          gte: new Date(start_date),
+          lte: new Date(end_date),
+        },
+        ...(search
+          ? {
+              OR: [
+                {
+                  issuanceDirective: { contains: search, mode: "insensitive" },
+                },
+              ],
+            }
+          : {}),
+      };
+
+      const statusFilter = status === "all" ? undefined : status;
+
+      const issuances = await prisma.issuance.findMany({
+        where: { ...where, status: statusFilter } as never,
+        include: {
           endUsers: {
-            select: {
-              id: true,
-              name: true,
+            include: {
               inventories: {
                 where: {
-                  issuanceId: id,
+                  issuance: {
+                    id: {
+                      not: undefined,
+                    },
+                  },
                 },
                 select: {
-                  inventoryId: true,
-                  items: true,
-                  status: true,
                   id: true,
+                  quantity: true,
+                  status: true,
+                  issuanceId: true,
+                  items: {
+                    select: {
+                      size: true,
+                      price: true,
+                      amount: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          issuanceDetails: {
+            include: {
+              inventory: true,
+              endUser: true,
+              items: {
+                select: {
+                  size: true,
+                  price: true,
+                  amount: true,
                   quantity: true,
                 },
               },
@@ -719,96 +754,38 @@ export class IssuanceService {
             },
           },
         },
+        orderBy: {
+          createdAt: "desc",
+        },
       });
 
-      if (!issuance) {
-        throw new Error(`issuances with ID ${id} not found`);
-      }
+      // Calculate totalAmount for each issuance
+      const issuancesWithTotalAmount = issuances.map((issuance) => {
+        let totalAmount = 0;
 
-      // Replace the problematic code with:
-      const response = {
-        ...issuance,
-        endUsers: await Promise.all(
-          issuance.endUsers.map(async (endUser) => {
-            return {
-              id: endUser.id,
-              name: endUser.name,
-              inventory: await Promise.all(
-                endUser.inventories.map(async (inventory) => {
-                  const itemPromises = inventory.items.map(async (item) => {
-                    const inventoryData = await prisma.inventory.findUnique({
-                      where: { id: item.inventoryId || "" },
-                      select: {
-                        sizeType: true,
-                        id: true,
-                        quantity: true,
-                        unit: true,
-                        status: true,
-                      },
-                    });
+        // Sum amounts from issuance details items
+        issuance.issuanceDetails.forEach((detail) => {
+          detail.items.forEach((item) => {
+            const itemAmount = parseFloat(item.amount || "0");
+            if (!isNaN(itemAmount)) {
+              totalAmount += itemAmount;
+            }
+          });
+        });
 
-                    const receiptData = await prisma.receipt.findUnique({
-                      where: {
-                        issuanceDirective: item.receiptRef || "",
-                      },
-                      select: {
-                        quantity: true,
-                      },
-                    });
+        return {
+          ...issuance,
+          totalAmount: totalAmount.toFixed(2),
+        };
+      });
 
-                    // check if the item.size is a uuid
-                    const isUuid = (str: string) =>
-                      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
-                        str
-                      );
-                    const itemSize = isUuid(item.size || "")
-                      ? await prisma.item.findUnique({
-                        where: { id: item.size || "" },
-                        select: { size: true, id: true },
-                      })
-                      : null;
-
-                    return {
-                      ...inventoryData,
-                      id: item.id,
-                      unit: item.unit,
-                      receiptRef: item.receiptRef,
-                      max_quantity: String(
-                        receiptData?.quantity || item.quantity
-                      ),
-                      quantity: String(item.quantity),
-                      size: itemSize ? itemSize.size : item.size,
-                      sizeId: itemSize ? itemSize.id : null,
-                      price: String(item.price),
-                      name: item.item_name,
-                      amount: String(item.amount),
-                      itemId: item.refId,
-                    };
-                  });
-
-                  // Get the first item only since you seem to want just one
-                  const itemData = (await Promise.all(itemPromises))[0];
-
-                  return {
-                    id: inventory.inventoryId,
-                    issuanceDetailId: inventory.id,
-                    status: inventory.status,
-                    item: itemData,
-                  };
-                })
-              ),
-            };
-          })
-        ),
-      };
-
-      return response;
+      return issuancesWithTotalAmount;
     } catch (error: any) {
-      throw new Error(`Failed to get issuance: ${error.message}`);
+      throw new Error(`Failed to get issuances: ${error.message}`);
     }
   }
 
-  async getReceipts(fetch = 'some') {
+  async getReceipts(fetch = "some") {
     const receipts = await prisma.receipt.findMany({
       include: {
         item: true,
@@ -833,12 +810,12 @@ export class IssuanceService {
           item.id
         );
         //@ts-expect-error skip for now kay kapoy
-        if (receiptData?.data[0].issued_quantity <= 0 && fetch === 'all') {
+        if (receiptData?.data[0].issued_quantity <= 0 && fetch === "all") {
           continue;
         }
 
         //@ts-expect-error skip for now kay kapoy
-        if (receiptData?.data[0].is_consumed && fetch === 'some') {
+        if (receiptData?.data[0].is_consumed && fetch === "some") {
           continue;
         }
 
@@ -889,12 +866,15 @@ export class IssuanceService {
     // GIL
     const inventory = await inventoryService.getInventoryById(inventoryId);
 
-    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+    if (
+      inventory?.quantitySummary?.totalQuantity &&
+      inventory.quantitySummary.totalQuantity <= 5
+    ) {
       await notificationService.createLowStockNotification({
         name: inventory?.name,
         size: inventory?.quantitySummary?.totalQuantity,
-        dataId: inventory?.id
-      })
+        dataId: inventory?.id,
+      });
     }
 
     return issuance;
@@ -915,7 +895,9 @@ export class IssuanceService {
       where: { issuanceId: issuance.issuanceId },
     });
 
-    const pendingCount = issuances.filter((item) => item.status === "withdrawn");
+    const pendingCount = issuances.filter(
+      (item) => item.status === "withdrawn"
+    );
 
     if (pendingCount.length === 0) {
       await prisma.issuance.update({
@@ -930,12 +912,15 @@ export class IssuanceService {
     // GIL
     const inventory = await inventoryService.getInventoryById(inventoryId);
 
-    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+    if (
+      inventory?.quantitySummary?.totalQuantity &&
+      inventory.quantitySummary.totalQuantity <= 5
+    ) {
       await notificationService.createLowStockNotification({
         name: inventory?.name,
         size: inventory?.quantitySummary?.totalQuantity,
-        dataId: inventory?.id
-      })
+        dataId: inventory?.id,
+      });
     }
 
     return issuance;
@@ -969,7 +954,7 @@ export class IssuanceService {
         issuanceStatus: "pending",
       },
     });
-    console.log(id)
+    console.log(id);
     return await prisma.issuanceDetail.updateMany({
       where: {
         issuanceId: id,
@@ -1008,7 +993,7 @@ export class IssuanceService {
       },
       data: {
         status: "archived",
-      }
+      },
     });
 
     return await prisma.issuance.update({
@@ -1027,7 +1012,7 @@ export class IssuanceService {
       },
       data: {
         status: "pending",
-      }
+      },
     });
     return await prisma.issuance.update({
       where: { id },
