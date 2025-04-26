@@ -127,6 +127,9 @@ export const processReturnedItems = async (returnedItems: any[], sizeQuantities:
 
 export const processIssuanceDetails = (issuanceDetails: any[], sizeQuantities: any, quantitySummary: any) => {
   issuanceDetails.forEach((detail) => {
+    if(detail.status === "archived"){
+      return;
+    }
     const quantity = parseInt(detail.quantity || "0", 10);
     const size = detail?.size || "No Size";
     const price = parseFloat(detail.price || "0");

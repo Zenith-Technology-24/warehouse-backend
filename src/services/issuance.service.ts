@@ -1002,6 +1002,15 @@ export class IssuanceService {
       throw new Error("Cannot archive issuance with withdrawn items");
     }
 
+    await prisma.issuanceDetail.updateMany({
+      where: {
+        issuanceId: id,
+      },
+      data: {
+        status: "archived",
+      }
+    });
+
     return await prisma.issuance.update({
       where: { id },
       data: {
