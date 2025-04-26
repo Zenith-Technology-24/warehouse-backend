@@ -1021,6 +1021,14 @@ export class IssuanceService {
   }
 
   async unArchiveIssuance(id: string) {
+    await prisma.issuanceDetail.updateMany({
+      where: {
+        issuanceId: id,
+      },
+      data: {
+        status: "pending",
+      }
+    });
     return await prisma.issuance.update({
       where: { id },
       data: {
