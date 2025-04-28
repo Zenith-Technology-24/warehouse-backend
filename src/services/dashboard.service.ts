@@ -320,9 +320,9 @@ export class DashboardService {
         // Determine stock level and increment counter
         if (availableQuantity === 0) {
           counts.outOfStock++;
-        } else if (availableQuantity <= 30) {
+        } else if (availableQuantity <= 100) {
           counts.lowStock++;
-        } else if (availableQuantity <= 98) {
+        } else if (availableQuantity <= 499) {
           counts.midStock++;
         } else {
           counts.highStock++;
