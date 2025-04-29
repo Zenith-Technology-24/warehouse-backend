@@ -423,6 +423,12 @@ export class IssuanceService {
                       },
                     });
 
+                    const refItemExists = inventoryItem?.refId
+                      ? await tx.item.findUnique({
+                          where: { id: inventoryItem.refId },
+                        })
+                      : null;
+
                     // Create inventory transaction record
                     await tx.inventoryTransaction.create({
                       data: {
@@ -432,7 +438,9 @@ export class IssuanceService {
                         issuanceId: issuanceDetail.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: inventoryItem?.refId || createdItem.id,
+                        itemId: refItemExists
+                          ? inventoryItem.refId
+                          : createdItem.id,
                         price: String(inventoryItem?.price) || "1",
                         receiptId: currentReceipt?.id,
                       },
