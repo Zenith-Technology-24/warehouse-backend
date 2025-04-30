@@ -408,14 +408,14 @@ export class InventoryService {
         let returnedQuantity = 0;
         let grandTotalAmount = 0;
 
-        if (inventory.item) {
-          const quantity = parseInt(inventory.item.quantity || "0", 10);
-          const price = parseFloat(inventory.item.price || "0");
+        // if (inventory.item) {
+        //   const quantity = parseInt(inventory.item.quantity || "0", 10);
+        //   const price = parseFloat(inventory.item.price || "0");
 
-          totalQuantity += quantity;
-          availableQuantity += quantity;
-          grandTotalAmount += quantity * price;
-        }
+        //   totalQuantity += quantity;
+        //   availableQuantity += quantity;
+        //   // grandTotalAmount += quantity * price;
+        // }
         let currentPrice = 0;
 
         inventory.receipts.forEach((receipt) => {
