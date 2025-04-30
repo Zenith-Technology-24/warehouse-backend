@@ -12,21 +12,36 @@ export interface DashboardSummary {
     totalUsers: number;
     activeUsers: number;
     inactiveUsers: number;
-  }
+  };
 }
 
 export class DashboardService {
   async getSummary(): Promise<DashboardSummary> {
     try {
       const inventories = await prisma.inventory.findMany({
+        where: {
+          status: {
+            not: "archived",
+          },
+        },
         include: {
           item: true,
           receipts: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             include: {
               item: true,
             },
           },
           issuanceDetails: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             select: {
               quantity: true,
               status: true,
@@ -34,12 +49,22 @@ export class DashboardService {
             },
           },
           ReturnedItems: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             select: {
               id: true,
               receiptRef: true,
             },
           },
           InventoryTransaction: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             select: {
               id: true,
               quantity: true,
@@ -91,7 +116,7 @@ export class DashboardService {
           const issuedQuantity = parseInt(detail.quantity || "0");
 
           if (detail.status === "withdrawn") {
-            totalIssuedItems += issuedQuantity
+            totalIssuedItems += issuedQuantity;
             totalInStock -= issuedQuantity;
           }
         });
@@ -165,10 +190,11 @@ export class DashboardService {
       const users = await this.getUserReports();
 
       const totalReceived = await prisma.receipt.count();
+      const totalIssued = await prisma.issuance.count();
       return {
         totalItems: totalReceiptItems,
         totalInStock,
-        totalIssuedItems,
+        totalIssuedItems: totalIssued,
         totalReceiptItems: totalReceived,
         totalReturnedItems,
         users,
@@ -351,7 +377,7 @@ export class DashboardService {
       return {
         counts,
         percentages: {
-          ...counts
+          ...counts,
         },
       };
     } catch (error: any) {

@@ -168,9 +168,17 @@ export class IssuanceService {
                   if (currentInventory) {
                     const sizeQuantities = currentInventory.detailedQuantities;
                     const requestedSize = inventoryItem.size || "No Size";
+                    
+                    // Check if the requested size exists in sizeQuantities
+                    if (!(requestedSize in sizeQuantities)) {
+                      throw new Error(`Size ${requestedSize} not found in inventory ${currentInventory.name}`);
+                    }
+                    
+                    // @ts-expect-error skip
                     const sizeData = sizeQuantities[requestedSize].available;
                     if (Number(inventoryItem.quantity) > Number(sizeData)) {
                       throw new Error(
+                        // @ts-expect-error skip
                         `Quantity ${inventoryItem.quantity} exceeds available quantity ${sizeQuantities[requestedSize].available} of ${currentInventory.name} for size ${inventoryItem.size}`
                       );
                     }
