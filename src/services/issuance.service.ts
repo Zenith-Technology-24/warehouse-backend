@@ -825,6 +825,11 @@ export class IssuanceService {
 
   async getReceipts(fetch = "some") {
     const receipts = await prisma.receipt.findMany({
+      where: {
+        status: {
+          not: "archived",
+        }
+      },
       include: {
         item: true,
       },
