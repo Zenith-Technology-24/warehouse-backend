@@ -301,7 +301,9 @@ export class InventoryService {
         quantitySummary: {
           ...quantitySummary,
           returnedQuantity: quantitySummary.returnedQuantity,
-          grandTotalAmount: formatCurrency(Math.max(0, quantitySummary.grandTotalAmount)),
+          grandTotalAmount: formatCurrency(
+            Math.max(0, quantitySummary.grandTotalAmount)
+          ),
         },
         sizeDetails: groupedSizeDetails,
         detailedQuantities: sizeQuantities,
@@ -331,11 +333,11 @@ export class InventoryService {
 
       const where = search
         ? {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { unit: { contains: search, mode: "insensitive" } },
-          ],
-        }
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { unit: { contains: search, mode: "insensitive" } },
+            ],
+          }
         : {};
 
       const inventories = await prisma.inventory.findMany({
@@ -354,12 +356,18 @@ export class InventoryService {
               quantity: true,
               issuanceDetails: true,
             },
+            where: {
+              status: { not: "archived" },
+            },
           },
           issuanceDetails: {
             select: {
               quantity: true,
               status: true,
               issuanceId: true,
+            },
+            where: {
+              status: { not: "archived" },
             },
           },
 
@@ -381,7 +389,6 @@ export class InventoryService {
               type: true,
               price: true,
               amount: true,
-
             },
           },
         },
@@ -416,18 +423,14 @@ export class InventoryService {
           if (receipt.status === "archived") return;
 
           receipt.item
-            .filter((i) => (i.issuanceDetailId === null))
+            .filter((i) => i.issuanceDetailId === null)
             .forEach((item) => {
               if (item.inventoryId === inventory.id) {
                 const quantity = parseInt(item.quantity || "0", 10);
                 currentPrice = parseFloat(item.price || "0");
-                if (receipt.status === "pending") {
-                  pendingQuantity += quantity;
-                } else {
-                  totalQuantity += quantity;
-                  availableQuantity += quantity;
-                  grandTotalAmount += quantity * currentPrice;
-                }
+                totalQuantity += quantity;
+                availableQuantity += quantity;
+                grandTotalAmount += quantity * currentPrice;
               }
             });
         });
@@ -454,7 +457,9 @@ export class InventoryService {
             if (item.status === "archived") return;
 
             const matchingItem = inventory.receipts
-              .flatMap((receipt) => { return { ...receipt.item, status: receipt.status } })
+              .flatMap((receipt) => {
+                return { ...receipt.item, status: receipt.status };
+              })
               .find((i) => i.id === item.itemId && i.status !== "archived");
 
             if (matchingItem) {
@@ -475,7 +480,7 @@ export class InventoryService {
 
           const issuedQuantity = parseInt(detail.quantity || "0", 10);
           if (detail.status === "pending") {
-            pendingIssuanceQuantity += issuedQuantity;
+            // pendingIssuanceQuantity += issuedQuantity;
           } else if (detail.status === "withdrawn") {
             withdrawnQuantity += issuedQuantity;
             availableQuantity -= issuedQuantity;
@@ -639,7 +644,8 @@ export class InventoryService {
           let grandTotalAmount = 0;
 
           const inventoryDetails = await this.getInventoryById(inventory.id);
-          pendingQuantity = inventoryDetails?.quantitySummary?.pendingQuantity as any;
+          pendingQuantity = inventoryDetails?.quantitySummary
+            ?.pendingQuantity as any;
 
           const itemQty = parseInt(inventory.item?.quantity || "0", 10);
           const itemPrice = parseFloat(inventory.item?.price || "0");
@@ -718,7 +724,7 @@ export class InventoryService {
             }).format(grandTotalAmount),
           };
         })
-      )
+      );
 
       return processed.filter((inv) => inv?.receipts?.length > 0);
     } catch (err: any) {

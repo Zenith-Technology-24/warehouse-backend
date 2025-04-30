@@ -144,8 +144,8 @@ export class IssuanceService {
                     },
                     endUser: createdEndUser
                       ? {
-                        connect: { id: createdEndUser.id },
-                      }
+                          connect: { id: createdEndUser.id },
+                        }
                       : undefined,
                   },
                 });
@@ -247,11 +247,7 @@ export class IssuanceService {
     }
   }
 
-  async update(
-    id: string,
-    data: CreateIssuanceDto,
-    user: User
-  ) {
+  async update(id: string, data: CreateIssuanceDto, user: User) {
     try {
       const issuance = await prisma.$transaction(
         async (tx) => {
@@ -393,8 +389,8 @@ export class IssuanceService {
                       },
                       endUser: createdEndUser
                         ? {
-                          connect: { id: createdEndUser.id },
-                        }
+                            connect: { id: createdEndUser.id },
+                          }
                         : undefined,
                     },
                   });
@@ -427,6 +423,12 @@ export class IssuanceService {
                       },
                     });
 
+                    const refItemExists = inventoryItem?.refId
+                      ? await tx.item.findUnique({
+                          where: { id: inventoryItem.refId },
+                        })
+                      : null;
+
                     // Create inventory transaction record
                     await tx.inventoryTransaction.create({
                       data: {
@@ -436,7 +438,9 @@ export class IssuanceService {
                         issuanceId: issuanceDetail.id,
                         size: inventoryItem?.size || "NO SIZE",
                         amount: String(inventoryItem?.amount) || "1",
-                        itemId: inventoryItem?.refId || createdItem.id,
+                        itemId: refItemExists
+                          ? inventoryItem.refId
+                          : createdItem.id,
                         price: String(inventoryItem?.price) || "1",
                         receiptId: currentReceipt?.id,
                       },
@@ -519,10 +523,10 @@ export class IssuanceService {
 
       const where = search
         ? {
-          OR: [
-            { issuanceDirective: { contains: search, mode: "insensitive" } },
-          ],
-        }
+            OR: [
+              { issuanceDirective: { contains: search, mode: "insensitive" } },
+            ],
+          }
         : {};
 
       const statusFilter = status === "all" ? undefined : status;
@@ -608,12 +612,12 @@ export class IssuanceService {
         },
         ...(search
           ? {
-            OR: [
-              {
-                issuanceDirective: { contains: search, mode: "insensitive" },
-              },
-            ],
-          }
+              OR: [
+                {
+                  issuanceDirective: { contains: search, mode: "insensitive" },
+                },
+              ],
+            }
           : {}),
       };
 
@@ -633,14 +637,17 @@ export class IssuanceService {
                   },
                 },
                 select: {
+                  id: true,
                   quantity: true,
                   status: true,
                   issuanceId: true,
-                },
-              },
-              inventory: {
-                select: {
-                  item: true,
+                  items: {
+                    select: {
+                      size: true,
+                      price: true,
+                      amount: true,
+                    },
+                  },
                 },
               },
             },
@@ -649,6 +656,14 @@ export class IssuanceService {
             include: {
               inventory: true,
               endUser: true,
+              items: {
+                select: {
+                  size: true,
+                  price: true,
+                  amount: true,
+                  quantity: true,
+                },
+              },
             },
           },
           user: {
@@ -670,7 +685,27 @@ export class IssuanceService {
         },
       });
 
-      return issuances;
+      // Calculate totalAmount for each issuance
+      const issuancesWithTotalAmount = issuances.map((issuance) => {
+        let totalAmount = 0;
+
+        // Sum amounts from issuance details items
+        issuance.issuanceDetails.forEach((detail) => {
+          detail.items.forEach((item) => {
+            const itemAmount = parseFloat(item.amount || "0");
+            if (!isNaN(itemAmount)) {
+              totalAmount += itemAmount;
+            }
+          });
+        });
+
+        return {
+          ...issuance,
+          totalAmount: totalAmount.toFixed(2),
+        };
+      });
+
+      return issuancesWithTotalAmount;
     } catch (error: any) {
       throw new Error(`Failed to get issuances: ${error.message}`);
     }
@@ -763,9 +798,9 @@ export class IssuanceService {
                       );
                     const itemSize = isUuid(item.size || "")
                       ? await prisma.item.findUnique({
-                        where: { id: item.size || "" },
-                        select: { size: true, id: true },
-                      })
+                          where: { id: item.size || "" },
+                          select: { size: true, id: true },
+                        })
                       : null;
 
                     return {
@@ -808,7 +843,7 @@ export class IssuanceService {
     }
   }
 
-  async getReceipts(fetch = 'some') {
+  async getReceipts(fetch = "some") {
     const receipts = await prisma.receipt.findMany({
       include: {
         item: true,
@@ -833,12 +868,12 @@ export class IssuanceService {
           item.id
         );
         //@ts-expect-error skip for now kay kapoy
-        if (receiptData?.data[0].issued_quantity <= 0 && fetch === 'all') {
+        if (receiptData?.data[0].issued_quantity <= 0 && fetch === "all") {
           continue;
         }
 
         //@ts-expect-error skip for now kay kapoy
-        if (receiptData?.data[0].is_consumed && fetch === 'some') {
+        if (receiptData?.data[0].is_consumed && fetch === "some") {
           continue;
         }
 
@@ -889,12 +924,15 @@ export class IssuanceService {
     // GIL
     const inventory = await inventoryService.getInventoryById(inventoryId);
 
-    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+    if (
+      inventory?.quantitySummary?.totalQuantity &&
+      inventory.quantitySummary.totalQuantity <= 5
+    ) {
       await notificationService.createLowStockNotification({
         name: inventory?.name,
         size: inventory?.quantitySummary?.totalQuantity,
-        dataId: inventory?.id
-      })
+        dataId: inventory?.id,
+      });
     }
 
     return issuance;
@@ -915,7 +953,9 @@ export class IssuanceService {
       where: { issuanceId: issuance.issuanceId },
     });
 
-    const pendingCount = issuances.filter((item) => item.status === "withdrawn");
+    const pendingCount = issuances.filter(
+      (item) => item.status === "withdrawn"
+    );
 
     if (pendingCount.length === 0) {
       await prisma.issuance.update({
@@ -930,12 +970,15 @@ export class IssuanceService {
     // GIL
     const inventory = await inventoryService.getInventoryById(inventoryId);
 
-    if (inventory?.quantitySummary?.totalQuantity && inventory.quantitySummary.totalQuantity <= 5) {
+    if (
+      inventory?.quantitySummary?.totalQuantity &&
+      inventory.quantitySummary.totalQuantity <= 5
+    ) {
       await notificationService.createLowStockNotification({
         name: inventory?.name,
         size: inventory?.quantitySummary?.totalQuantity,
-        dataId: inventory?.id
-      })
+        dataId: inventory?.id,
+      });
     }
 
     return issuance;
@@ -969,7 +1012,7 @@ export class IssuanceService {
         issuanceStatus: "pending",
       },
     });
-    console.log(id)
+    console.log(id);
     return await prisma.issuanceDetail.updateMany({
       where: {
         issuanceId: id,
@@ -1002,6 +1045,15 @@ export class IssuanceService {
       throw new Error("Cannot archive issuance with withdrawn items");
     }
 
+    await prisma.issuanceDetail.updateMany({
+      where: {
+        issuanceId: id,
+      },
+      data: {
+        status: "archived",
+      },
+    });
+
     return await prisma.issuance.update({
       where: { id },
       data: {
@@ -1012,6 +1064,14 @@ export class IssuanceService {
   }
 
   async unArchiveIssuance(id: string) {
+    await prisma.issuanceDetail.updateMany({
+      where: {
+        issuanceId: id,
+      },
+      data: {
+        status: "pending",
+      },
+    });
     return await prisma.issuance.update({
       where: { id },
       data: {
