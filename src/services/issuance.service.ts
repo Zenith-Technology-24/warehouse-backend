@@ -378,6 +378,27 @@ export class IssuanceService {
                       where: { issuanceDirective: inventoryItem.receiptRef },
                     });
 
+                    const currentInventory =
+                      await inventoryService.getInventoryById(inventoryItem.id);
+                    if (currentInventory) {
+                      const sizeQuantities =
+                        currentInventory.detailedQuantities;
+                      const requestedSize = inventoryItem.size || "No Size";
+
+                      if (!(requestedSize in sizeQuantities)) {
+                        throw new Error(
+                          `Size ${requestedSize} not found in inventory ${currentInventory.name}`
+                        );
+                      }
+
+                      const sizeData = sizeQuantities[requestedSize].available;
+                      if (Number(inventoryItem.quantity) > Number(sizeData)) {
+                        throw new Error(
+                          `Quantity ${inventoryItem.quantity} exceeds available quantity ${sizeQuantities[requestedSize].available} of ${currentInventory.name} for size ${inventoryItem.size}`
+                        );
+                      }
+                    }
+
                     const createdItem = await tx.item.create({
                       data: {
                         item_name: inventoryItem?.name || "NO NAME",
