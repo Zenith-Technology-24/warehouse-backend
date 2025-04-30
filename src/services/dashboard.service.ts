@@ -189,8 +189,23 @@ export class DashboardService {
       const stonks = await this.getItemsByStockLevel();
       const users = await this.getUserReports();
 
-      const totalReceived = await prisma.receipt.count();
-      const totalIssued = await prisma.issuance.count();
+      const totalReceived = await prisma.receipt.count({
+        where: {
+          status: {
+            not: "archived",
+          },
+        },
+      });
+      const totalIssued = await prisma.issuance.count({
+        where: {
+          status: {
+            not: "archived",
+          },
+          issuanceStatus: {
+            not: "archived",
+          }
+        },
+      });
       return {
         totalItems: totalReceiptItems,
         totalInStock,
