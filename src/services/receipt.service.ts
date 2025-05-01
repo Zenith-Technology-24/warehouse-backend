@@ -58,6 +58,13 @@ export class ReceiptService {
                 name: true,
                 status: true,
                 sizeType: true,
+                ReturnedItems: {
+                  where: {
+                    status: {
+                      not: "archived"
+                    }
+                  }
+                },
                 item: {
                   select: {
                     location: true,
@@ -126,6 +133,14 @@ export class ReceiptService {
             };
           }
 
+          const returnCount = receipt.inventory.map((inv) => {
+            return inv.ReturnedItems
+          }).flatMap((item) => {
+            return item.map((item) => {
+              return item;
+            });
+          }).length;
+
           const totalReceiptQuantity = receiptItems.reduce((acc, item) => {
             return acc + Number(item.quantity || "0");
           }, 0);
@@ -136,16 +151,16 @@ export class ReceiptService {
 
           const remainingQuantity = Math.max(
             0,
-            totalReceiptQuantity - totalIssuedQuantity
+            totalReceiptQuantity - (totalIssuedQuantity)
           );
 
           return {
             ...receipt,
             max_quantity: totalReceiptQuantity,
-            issued_quantity: totalIssuedQuantity,
+            issued_quantity: totalIssuedQuantity - returnCount,
             current_quantity: remainingQuantity,
-            is_consumed: totalIssuedQuantity >= totalReceiptQuantity,
-            quantity_string: `${totalIssuedQuantity}/${totalReceiptQuantity}`,
+            is_consumed: (totalIssuedQuantity - returnCount) >= totalReceiptQuantity,
+            quantity_string: `${totalIssuedQuantity - returnCount}/${totalReceiptQuantity}`,
           };
         })
       );
@@ -628,6 +643,13 @@ export class ReceiptService {
           include: {
             inventory: {
               select: {
+                ReturnedItems: {
+                  where: {
+                    status: {
+                      not: "archived"
+                    }
+                  }
+                },
                 id: true,
                 name: true,
                 status: true,
@@ -697,6 +719,14 @@ export class ReceiptService {
             return acc + Number(item.quantity || "0");
           }, 0);
 
+          const returnCount = receipt.inventory.map((inv) => {
+            return inv.ReturnedItems
+          }).flatMap((item) => {
+            return item.map((item) => {
+              return item;
+            });
+          }).length;
+
           const totalIssuedQuantity = issuedItems
             .filter((item) => {
               return item.IssuanceDetail?.status === "withdrawn";
@@ -740,10 +770,10 @@ export class ReceiptService {
           return {
             ...receipt,
             max_quantity: totalReceiptQuantity,
-            issued_quantity: totalIssuedQuantity,
+            issued_quantity: totalIssuedQuantity - returnCount,
             current_quantity: remainingQuantity,
-            is_consumed: totalIssuedQuantity >= totalReceiptQuantity,
-            quantity_string: `${totalIssuedQuantity}/${totalReceiptQuantity}`,
+            is_consumed: (totalIssuedQuantity - returnCount) >= totalReceiptQuantity,
+            quantity_string: `${totalIssuedQuantity - returnCount}/${totalReceiptQuantity}`,
           };
         })
       );

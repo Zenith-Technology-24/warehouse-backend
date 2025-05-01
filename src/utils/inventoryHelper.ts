@@ -73,6 +73,7 @@ export const processItems = (items: any[], sizeQuantities: any, quantitySummary:
 export const processReturnedTransactions = (transactions: any[], sizeQuantities: any, quantitySummary: any) => {
   transactions.forEach((transaction) => {
     if (transaction.type === "RETURNED") {
+      console.log(transaction.type);
       const quantity = parseInt(transaction.quantity || "0", 10);
       const price = parseFloat(transaction.price || "0");
       const size = transaction.size || "No Size";
@@ -80,11 +81,10 @@ export const processReturnedTransactions = (transactions: any[], sizeQuantities:
       if (!sizeQuantities[size]) {
         sizeQuantities[size] = initializeSizeQuantities(size);
       }
-
-      sizeQuantities[size].returned += quantity;
-      sizeQuantities[size].available += quantity;
-      quantitySummary.returnedQuantity += quantity;
-      quantitySummary.grandTotalAmount += quantity * price;
+      // sizeQuantities[size].returned += quantity;
+      // sizeQuantities[size].available += quantity;
+      // quantitySummary.returnedQuantity += quantity;
+      // quantitySummary.grandTotalAmount += quantity * price;
     }
   });
 };
