@@ -11,6 +11,10 @@ export const activityLogMiddleware = async (c: Context & { user: Partial<User>; 
     const path = c.req.path.split("/")[2];
     let method = c.req.method as "POST" | "PUT";
 
+    // skip the notification routes
+    if (path === "notifications") return;
+    
+
     if (!["POST", "PUT"].includes(method)) return;
 
     const actionMessages: Record<string, Record<typeof method, string>> = {

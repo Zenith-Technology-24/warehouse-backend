@@ -123,14 +123,12 @@ export class DashboardService {
 
         inventory.InventoryTransaction.forEach((transaction) => {
           const quantity = parseInt(transaction.quantity || "0");
-          const price = parseFloat(transaction.price || "0");
-          const amount = parseFloat(transaction.amount || "0");
-
+          
           if (transaction.type === "RETURNED") {
             totalReturnedItems += quantity;
 
             totalInStock += quantity;
-            totalAmount += quantity * price;
+            totalAmount += quantity * currentPrice;
           } else if (transaction.type === "ISSUANCE") {
             // if (
             //   transaction.issuanceId &&

@@ -221,13 +221,13 @@ export class InventoryService {
 
       processItems(items, sizeQuantities, quantitySummary);
 
-      if (inventory.InventoryTransaction) {
-        processReturnedTransactions(
-          inventory.InventoryTransaction,
-          sizeQuantities,
-          quantitySummary
-        );
-      }
+      // if (inventory.InventoryTransaction) {
+      //   processReturnedTransactions(
+      //     inventory.InventoryTransaction,
+      //     sizeQuantities,
+      //     quantitySummary
+      //   );
+      // }
 
       if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
         inventory.ReturnedItems = await processReturnedItems(
@@ -372,6 +372,9 @@ export class InventoryService {
           },
 
           ReturnedItems: {
+            where: {
+              status: { not: "archived" },
+            },
             select: {
               id: true,
               itemName: true,
@@ -402,20 +405,9 @@ export class InventoryService {
       const processedInventories = inventories.map((inventory) => {
         let totalQuantity = 0;
         let availableQuantity = 0;
-        let pendingQuantity = 0;
-        let pendingIssuanceQuantity = 0;
         let withdrawnQuantity = 0;
         let returnedQuantity = 0;
         let grandTotalAmount = 0;
-
-        // if (inventory.item) {
-        //   const quantity = parseInt(inventory.item.quantity || "0", 10);
-        //   const price = parseFloat(inventory.item.price || "0");
-
-        //   totalQuantity += quantity;
-        //   availableQuantity += quantity;
-        //   // grandTotalAmount += quantity * price;
-        // }
         let currentPrice = 0;
 
         inventory.receipts.forEach((receipt) => {
@@ -437,17 +429,16 @@ export class InventoryService {
 
         inventory.InventoryTransaction.forEach((transaction) => {
           // Skip archived transactions
-          if (transaction.status === "archived") return;
+          // if (transaction.status === "archived") return;
 
           const quantity = parseInt(transaction.quantity || "0", 10);
-          const price = parseFloat(transaction.price || "0");
 
           if (transaction.type === "RETURNED") {
             returnedQuantity += quantity;
 
             availableQuantity += quantity;
             totalQuantity += quantity;
-            grandTotalAmount += quantity * price;
+            grandTotalAmount += quantity * currentPrice;
           }
         });
 
