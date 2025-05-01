@@ -236,6 +236,7 @@ export const generateSizeDetailsGroups = (sizeQuantities: any) => {
 export const processInventoryItems2 = async (items: any[], inventoryId: string) => {
   return Promise.all(
     items.map(async (item) => {
+      let currentPrice = 0;
       const [receiptItems, issuedItems, returnedItems] = await Promise.all([
         prisma.inventoryTransaction.findMany({
           where: { itemId: item.id, inventoryId, type: "RECEIPT" }
@@ -263,7 +264,7 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
         const issuanceDetail = await prisma.issuanceDetail.findUnique({
           where: {
             id: issuedItem.issuanceId || "",
-            status: { not: "pending" }
+            status: "withdrawn",
           }
         });
 
@@ -284,12 +285,14 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
       const adjustedIssuedItems = Math.max(0, totalIssuedItems - totalReturnedItems);
 
       const totalIssuedItemsAmount = issuanceDetails.reduce(
-        (acc, item) => acc + parseFloat(item.amount || "0"), 0
+        (acc, item) => {
+          const itemPrice = parseFloat(item.price || "0");
+          currentPrice = itemPrice;
+          return acc + (parseInt(item.quantity || "0", 10) * itemPrice);
+        }, 0
       );
 
-      const returnedItemsAmount = returnedItems.reduce(
-        (acc, item) => acc + parseFloat(item.amount || "0"), 0
-      );
+      const amount = (totalIssuedItems - totalReturnedItems) * currentPrice;
 
       return {
         ...item,
@@ -298,7 +301,7 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
         totalReturnedItems,
         quantity: `${adjustedIssuedItems} / ${totalReceiptItems}`,
         is_consumed: adjustedIssuedItems >= totalReceiptItems,
-        amount: Number(item.amount) - totalIssuedItemsAmount + returnedItemsAmount
+        amount:  totalIssuedItemsAmount - amount,
       };
     })
   );
