@@ -123,12 +123,14 @@ export class DashboardService {
 
         inventory.InventoryTransaction.forEach((transaction) => {
           const quantity = parseInt(transaction.quantity || "0");
-          
-          if (transaction.type === "RETURNED") {
-            totalReturnedItems += quantity;
 
-            totalInStock += quantity;
-            totalAmount += quantity * currentPrice;
+          if (transaction.type === "RETURNED") {
+            if(inventory.ReturnedItems.length > 0){
+              totalReturnedItems += quantity;
+
+              totalInStock += quantity;
+              totalAmount += quantity * currentPrice;
+            }
           } else if (transaction.type === "ISSUANCE") {
             // if (
             //   transaction.issuanceId &&
