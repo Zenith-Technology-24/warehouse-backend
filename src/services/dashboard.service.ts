@@ -12,34 +12,67 @@ export interface DashboardSummary {
     totalUsers: number;
     activeUsers: number;
     inactiveUsers: number;
-  }
+  };
 }
 
 export class DashboardService {
   async getSummary(): Promise<DashboardSummary> {
     try {
       const inventories = await prisma.inventory.findMany({
+        where: {
+          status: {
+            not: "archived",
+          },
+        },
         include: {
-          item: true,
           receipts: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             include: {
-              item: true,
+              item: true
             },
           },
           issuanceDetails: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             select: {
               quantity: true,
               status: true,
               issuanceId: true,
+              items: {
+                select: {
+                  id: true,
+                  quantity: true,
+                  amount: true,
+                  price: true,
+                  issuanceDetailId: true,
+                },
+              }
             },
           },
           ReturnedItems: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             select: {
               id: true,
               receiptRef: true,
             },
           },
           InventoryTransaction: {
+            where: {
+              status: {
+                not: "archived",
+              },
+            },
             select: {
               id: true,
               quantity: true,
@@ -53,22 +86,14 @@ export class DashboardService {
         },
       });
 
-      let totalItems = 0;
       let totalInStock = 0;
       let totalIssuedItems = 0;
       let totalReceiptItems = 0;
       let totalReturnedItems = 0;
       let totalAmount = 0;
-
+      let currentPrice = 0;
       inventories.forEach((inventory) => {
-        if (inventory.item) {
-          const quantity = parseInt(inventory.item.quantity || "0");
-          const price = parseFloat(inventory.item.price || "0");
 
-          totalItems++;
-          totalInStock += quantity;
-          totalAmount += quantity * price;
-        }
 
         inventory.receipts.forEach((receipt) => {
           receipt.item
@@ -76,12 +101,11 @@ export class DashboardService {
             .forEach((item) => {
               if (item.inventoryId === inventory.id) {
                 const quantity = parseInt(item.quantity || "0");
-                const price = parseFloat(item.price || "0");
-
+                currentPrice = parseFloat(item.price || "0");
                 if (receipt.status !== "pending") {
                   totalReceiptItems += quantity;
                   totalInStock += quantity;
-                  totalAmount += quantity * price;
+                  totalAmount += quantity * currentPrice;
                 }
               }
             });
@@ -91,14 +115,16 @@ export class DashboardService {
           const issuedQuantity = parseInt(detail.quantity || "0");
 
           if (detail.status === "withdrawn") {
-            totalIssuedItems += issuedQuantity
-            totalInStock -= issuedQuantity;
+            totalIssuedItems += issuedQuantity;
+            totalInStock -= issuedQuantity;;
+            totalAmount -= issuedQuantity * currentPrice;
           }
         });
 
         inventory.InventoryTransaction.forEach((transaction) => {
           const quantity = parseInt(transaction.quantity || "0");
           const price = parseFloat(transaction.price || "0");
+          const amount = parseFloat(transaction.amount || "0");
 
           if (transaction.type === "RETURNED") {
             totalReturnedItems += quantity;
@@ -106,16 +132,15 @@ export class DashboardService {
             totalInStock += quantity;
             totalAmount += quantity * price;
           } else if (transaction.type === "ISSUANCE") {
-            if (
-              transaction.issuanceId &&
-              !inventory.issuanceDetails.some(
-                (d) =>
-                  d.status === "withdrawn" &&
-                  d.issuanceId === transaction.issuanceId
-              )
-            ) {
-              // DO NOTHING
-            }
+            // if (
+            //   transaction.issuanceId &&
+            //   !inventory.issuanceDetails.some(
+            //     (d) =>
+            //       d.status === "pending" &&
+            //       d.issuanceId === transaction.issuanceId
+            //   )
+            // ) {
+            // }
           } else if (transaction.type === "RECEIPT") {
             if (
               !inventory.receipts.some((r) => r.id === transaction.receiptId)
@@ -153,22 +178,38 @@ export class DashboardService {
       totalInStock = Math.max(0, totalInStock);
       totalAmount = Math.max(0, totalAmount);
 
-      const distinctItems = await prisma.item.findMany();
+      // const distinctItems = await prisma.item.findMany();
 
-      totalItems = distinctItems.reduce((acc, item) => {
-        const itemQuantity = parseInt(item.quantity || "0");
-        acc += itemQuantity;
-        return acc;
-      }, 0);
+      // const totalItems = distinctItems.reduce((acc, item) => {
+      //   const itemQuantity = parseInt(item.quantity || "0");
+      //   acc += itemQuantity;
+      //   return acc;
+      // }, 0);
 
       const stonks = await this.getItemsByStockLevel();
       const users = await this.getUserReports();
 
-      const totalReceived = await prisma.receipt.count();
+      const totalReceived = await prisma.receipt.count({
+        where: {
+          status: {
+            not: "archived",
+          },
+        },
+      });
+      const totalIssued = await prisma.issuance.count({
+        where: {
+          status: {
+            not: "archived",
+          },
+          issuanceStatus: {
+            not: "archived",
+          }
+        },
+      });
       return {
         totalItems: totalReceiptItems,
         totalInStock,
-        totalIssuedItems,
+        totalIssuedItems: totalIssued,
         totalReceiptItems: totalReceived,
         totalReturnedItems,
         users,
@@ -351,7 +392,7 @@ export class DashboardService {
       return {
         counts,
         percentages: {
-          ...counts
+          ...counts,
         },
       };
     } catch (error: any) {
