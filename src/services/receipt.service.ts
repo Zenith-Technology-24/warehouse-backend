@@ -41,7 +41,8 @@ export class ReceiptService {
   public async getCurrentReceipt(
     id: string,
     inventoryId: string,
-    itemId: string
+    itemId: string,
+    size: string
   ): Promise<CurrentReceipt | null> {
     try {
       const [receipts] = await Promise.all([
@@ -139,7 +140,7 @@ export class ReceiptService {
             return item.map((item) => {
               return item;
             });
-          }).length;
+          }).filter((item) => (item.itemId === itemId && item.size === size)).length;
 
           const totalReceiptQuantity = receiptItems.reduce((acc, item) => {
             return acc + Number(item.quantity || "0");
@@ -570,7 +571,8 @@ export class ReceiptService {
             const currentReceipt = await this.getCurrentReceipt(
               item.receiptId || "",
               item.inventoryId || "",
-              item.id
+              item.id,
+              item.size || ""
             );
 
             if (!currentReceipt?.data.length) {
@@ -725,7 +727,7 @@ export class ReceiptService {
             return item.map((item) => {
               return item;
             });
-          }).length;
+          }).filter((item) => item.receiptRef === receipt.issuanceDirective).length;
 
           const totalIssuedQuantity = issuedItems
             .filter((item) => {
@@ -912,7 +914,7 @@ export class ReceiptService {
       const enrichedReceipts = await Promise.all(
         receipts.map(async (receipt) => {
           const receiptItems = await prisma.item.findMany({
-            where: { receiptId: receipt.id },
+            where: { receiptId: receipt.id, issuanceDetailId: null },
           });
 
           const issuedItems = await prisma.item.findMany({
