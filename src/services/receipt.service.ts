@@ -41,7 +41,8 @@ export class ReceiptService {
   public async getCurrentReceipt(
     id: string,
     inventoryId: string,
-    itemId: string
+    itemId: string,
+    size: string
   ): Promise<CurrentReceipt | null> {
     try {
       const [receipts] = await Promise.all([
@@ -139,7 +140,7 @@ export class ReceiptService {
             return item.map((item) => {
               return item;
             });
-          }).filter((item) => item.itemId === itemId).length;
+          }).filter((item) => (item.itemId === itemId && item.size === size)).length;
 
           const totalReceiptQuantity = receiptItems.reduce((acc, item) => {
             return acc + Number(item.quantity || "0");
@@ -570,7 +571,8 @@ export class ReceiptService {
             const currentReceipt = await this.getCurrentReceipt(
               item.receiptId || "",
               item.inventoryId || "",
-              item.id
+              item.id,
+              item.size || ""
             );
 
             if (!currentReceipt?.data.length) {
