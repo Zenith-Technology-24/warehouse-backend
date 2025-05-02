@@ -139,7 +139,7 @@ export class ReceiptService {
             return item.map((item) => {
               return item;
             });
-          }).filter((item) => item.receiptRef === receipt.issuanceDirective).length;
+          }).filter((item) => item.itemId === itemId).length;
 
           const totalReceiptQuantity = receiptItems.reduce((acc, item) => {
             return acc + Number(item.quantity || "0");
