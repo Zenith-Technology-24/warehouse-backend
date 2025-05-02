@@ -103,9 +103,11 @@ export class DashboardService {
                 const quantity = parseInt(item.quantity || "0");
                 currentPrice = parseFloat(item.price || "0");
                 if (receipt.status !== "pending") {
-                  totalReceiptItems += quantity;
                   totalInStock += quantity;
                   totalAmount += quantity * currentPrice;
+                  if(receipt.status !== "archived"){
+                    totalReceiptItems += quantity;
+                  }
                 }
               }
             });
@@ -145,7 +147,7 @@ export class DashboardService {
             if (
               !inventory.receipts.some((r) => r.id === transaction.receiptId)
             ) {
-              totalReceiptItems += quantity;
+              // totalReceiptItems += quantity;
             }
           }
         });

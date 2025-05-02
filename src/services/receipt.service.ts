@@ -725,7 +725,7 @@ export class ReceiptService {
             return item.map((item) => {
               return item;
             });
-          }).length;
+          }).filter((item) => item.receiptRef === receipt.issuanceDirective).length;
 
           const totalIssuedQuantity = issuedItems
             .filter((item) => {
@@ -912,7 +912,7 @@ export class ReceiptService {
       const enrichedReceipts = await Promise.all(
         receipts.map(async (receipt) => {
           const receiptItems = await prisma.item.findMany({
-            where: { receiptId: receipt.id },
+            where: { receiptId: receipt.id, issuanceDetailId: null },
           });
 
           const issuedItems = await prisma.item.findMany({

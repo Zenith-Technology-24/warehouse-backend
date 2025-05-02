@@ -365,6 +365,7 @@ export class InventoryService {
               quantity: true,
               status: true,
               issuanceId: true,
+              id: true,
             },
             where: {
               status: { not: "archived" },
@@ -403,6 +404,18 @@ export class InventoryService {
         take,
       });
 
+      const issuances = await prisma.item.findMany({
+        where: {
+          issuanceDetailId: {
+            in: inventories
+              .flatMap((inventory) =>
+                inventory.issuanceDetails.map((detail) => detail.id)
+              )
+              .filter((id) => id !== null),
+          },
+        },
+      });
+
       const processedInventories = inventories.map((inventory) => {
         let totalQuantity = 0;
         let availableQuantity = 0;
@@ -414,16 +427,17 @@ export class InventoryService {
         inventory.receipts.forEach((receipt) => {
           // Skip archived receipts
           if (receipt.status === "archived") return;
-
+          //
           receipt.item
             .filter((i) => i.issuanceDetailId === null)
             .forEach((item) => {
               if (item.inventoryId === inventory.id) {
                 const quantity = parseInt(item.quantity || "0", 10);
+                const amount = parseFloat(item.amount || "0");
                 currentPrice = parseFloat(item.price || "0");
                 totalQuantity += quantity;
                 availableQuantity += quantity;
-                grandTotalAmount += quantity * currentPrice;
+                grandTotalAmount += amount;
               }
             });
         });
@@ -443,40 +457,39 @@ export class InventoryService {
               grandTotalAmount += quantity * currentPrice;
             }
           });
-          
-          inventory.ReturnedItems.forEach((item) => {
-            // Skip archived returned items
-            if (item.status === "archived") return;
 
-            const matchingItem = inventory.receipts
-              .flatMap((receipt) => {
-                return { ...receipt.item, status: receipt.status };
-              })
-              .find((i) => i.id === item.itemId && i.status !== "archived");
+          // inventory.ReturnedItems.forEach((item) => {
+          //   // Skip archived returned items
+          //   if (item.status === "archived") return;
 
-            if (matchingItem) {
-              const quantity = 1;
-              const price = parseFloat(matchingItem.price || "0");
+          //   const matchingItem = inventory.receipts
+          //     .flatMap((receipt) => {
+          //       return { ...receipt.item, status: receipt.status };
+          //     })
+          //     .find((i) => i.id === item.itemId && i.status !== "archived");
 
-              returnedQuantity += quantity;
-              availableQuantity += quantity;
-              totalQuantity += quantity;
-              grandTotalAmount += quantity * price;
-            }
-          });
+          //   if (matchingItem) {
+          //     const quantity = 1;
+          //     const price = parseFloat(matchingItem.price || "0");
+
+          //     returnedQuantity += quantity;
+          //     availableQuantity += quantity;
+          //     totalQuantity += quantity;
+          //     grandTotalAmount += quantity * price;
+          //   }
+          // });
         }
 
         inventory.issuanceDetails.forEach((detail) => {
-          // Skip archived issuance details
           if (detail.status === "archived") return;
-
-          const issuedQuantity = parseInt(detail.quantity || "0", 10);
+          const item = issuances.find((i) => i.issuanceDetailId === detail.id);
+          const issuedQuantity = parseInt(item?.quantity || "0", 10);
           if (detail.status === "pending") {
             // pendingIssuanceQuantity += issuedQuantity;
           } else if (detail.status === "withdrawn") {
             withdrawnQuantity += issuedQuantity;
             availableQuantity -= issuedQuantity;
-            grandTotalAmount -= issuedQuantity * currentPrice;
+            grandTotalAmount -= (issuedQuantity * parseFloat(item?.price || "0"));
           }
         });
 

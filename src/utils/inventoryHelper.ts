@@ -241,21 +241,29 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
         prisma.inventoryTransaction.findMany({
           where: { itemId: item.id, inventoryId, type: "RECEIPT" }
         }),
-        prisma.inventoryTransaction.findMany({
-          where: { 
-            itemId: item.id, 
-            inventoryId, 
-            type: "ISSUANCE", 
-            issuanceId: { not: null } 
+        // prisma.inventoryTransaction.findMany({
+        //   where: { 
+        //     itemId: item.id, 
+        //     inventoryId, 
+        //     type: "ISSUANCE", 
+        //     issuanceId: { not: null } 
+        //   }
+        // }),
+        prisma.item.findMany({
+          where: {
+            refId: item.id,
+            inventoryId,
+            issuanceDetailId: { not: null }
           }
         }),
-        prisma.inventoryTransaction.findMany({
-          where: { itemId: item.id, inventoryId, type: "RETURNED" }
+        prisma.returnedItems.findMany({
+          where: { itemId: item.id, inventoryId, status: "active" }
         })
       ]);
 
+
       const totalReturnedItems = returnedItems.reduce(
-        (acc, item) => acc + parseInt(item.quantity || "0", 10), 0
+        (acc, item) => acc + 1, 0
       );
 
       // Process issuance details
@@ -263,7 +271,7 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
       for (const issuedItem of issuedItems) {
         const issuanceDetail = await prisma.issuanceDetail.findUnique({
           where: {
-            id: issuedItem.issuanceId || "",
+            id: issuedItem.issuanceDetailId || "",
             status: "withdrawn",
           }
         });
@@ -275,7 +283,11 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
 
       // Calculate totals
       const totalReceiptItems = receiptItems.reduce(
-        (acc, item) => acc + parseInt(item.quantity || "0", 10), 0
+        (acc, item) => {
+          const itemPrice = parseFloat(item.price || "0");
+          currentPrice = itemPrice;
+          return acc + parseInt(item.quantity || "0", 10)
+        }, 0
       );
 
       const totalIssuedItems = issuanceDetails.reduce(
@@ -287,13 +299,22 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
       const totalIssuedItemsAmount = issuanceDetails.reduce(
         (acc, item) => {
           const itemPrice = parseFloat(item.price || "0");
-          currentPrice = itemPrice;
           return acc + (parseInt(item.quantity || "0", 10) * itemPrice);
         }, 0
       );
 
-      const amount = (totalIssuedItems - totalReturnedItems) * currentPrice;
+      const totalReceiptItemsAmount = receiptItems.reduce(
+        (acc, item) => {
+          const itemAmount = parseFloat(item.amount || "0");
+          const quantity = parseInt(item.quantity || "0", 10);
+          if (currentPrice === 0) {
+            currentPrice = quantity > 0 ? itemAmount / quantity : 0;
+          }
 
+          return acc + itemAmount;
+        }, 0
+      );
+      const amount = (totalReceiptItemsAmount - totalIssuedItemsAmount) + (totalReturnedItems * currentPrice);
       return {
         ...item,
         totalReceiptItems,
@@ -301,7 +322,7 @@ export const processInventoryItems2 = async (items: any[], inventoryId: string) 
         totalReturnedItems,
         quantity: `${adjustedIssuedItems} / ${totalReceiptItems}`,
         is_consumed: adjustedIssuedItems >= totalReceiptItems,
-        amount:  totalIssuedItemsAmount - amount,
+        amount:  amount,
       };
     })
   );
