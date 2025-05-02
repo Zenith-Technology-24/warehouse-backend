@@ -57,6 +57,46 @@ export class ReturnedItemsService {
         }
     }
 
+    async export(
+        start_date: string,
+        end_date: string,
+        status?: string,
+        search?: string
+    ) {
+        try {
+            const where = {
+                created_at: {
+                    gte: new Date(start_date),
+                    lte: new Date(end_date),
+                },
+                ...(search
+                    ? {
+                        OR: [
+                            {
+                                itemName: { contains: search, mode: "insensitive" },
+                            },
+                        ],
+                    }
+                    : {}),
+            };
+
+            const returnedItems = await prisma.returnedItems.findMany({
+                where: { ...where, status } as never,
+                orderBy: {
+                    created_at: "desc",
+                },
+                include: {
+                    created_by: true,
+                }
+            });
+
+            return returnedItems;
+        } catch (error: any) {
+            throw new Error(`Failed to get returned items: ${error.message}`);
+        }
+    }
+
+
     async create(data: any, user: User) {
         try {
             // Create a transaction history
@@ -78,7 +118,7 @@ export class ReturnedItemsService {
             });
 
             const newData = {
-                ...data, 
+                ...data,
                 itemSizes: undefined,
                 sizeType: undefined,
             };

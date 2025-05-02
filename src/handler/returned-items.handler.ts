@@ -16,6 +16,19 @@ export const getReturnedItems = async (c: Context) => {
     );
 };
 
+export const exportReturnedItems = async (c: Context) => {
+    const requestBody = await c.req.json();
+    const { start_date, end_date, search, status } = requestBody;
+    return c.json(
+        await returnedItemsService.export(
+            start_date ?? "",
+            end_date ?? "",
+            status,
+            search ?? ""
+        ), 200
+    );
+}
+
 export const createReturnedItems = async (c: Context & { user: User }) => {
     const data = await c.req.json();
     const user = c.user;
