@@ -392,6 +392,7 @@ export class InventoryService {
               type: true,
               price: true,
               amount: true,
+              itemId: true,
             },
           },
         },
@@ -427,22 +428,22 @@ export class InventoryService {
             });
         });
 
-        inventory.InventoryTransaction.forEach((transaction) => {
-          // Skip archived transactions
-          // if (transaction.status === "archived") return;
-
-          const quantity = parseInt(transaction.quantity || "0", 10);
-
-          if (transaction.type === "RETURNED") {
-            returnedQuantity += quantity;
-
-            availableQuantity += quantity;
-            totalQuantity += quantity;
-            grandTotalAmount += quantity * currentPrice;
-          }
-        });
-
         if (inventory.ReturnedItems && inventory.ReturnedItems.length > 0) {
+          inventory.InventoryTransaction.forEach((transaction) => {
+            // Skip archived transactions
+            // if (transaction.status === "archived") return;
+
+            const quantity = parseInt(transaction.quantity || "0", 10);
+
+            if (transaction.type === "RETURNED") {
+              returnedQuantity += quantity;
+
+              availableQuantity += quantity;
+              totalQuantity += quantity;
+              grandTotalAmount += quantity * currentPrice;
+            }
+          });
+          
           inventory.ReturnedItems.forEach((item) => {
             // Skip archived returned items
             if (item.status === "archived") return;
