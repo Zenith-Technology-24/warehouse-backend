@@ -71,7 +71,15 @@ export const session = async (c: Context & { user: User }) => {
 
 
 export const updateUser = async (c: Context & { user: User }) => {
-  const currentUser = c.user;
+  // const currentUser = c.user;
+  const currentUser = await prisma.user.findUnique({
+    where: {
+      id: c.user.id,
+    },
+    include: {
+      roles: true,
+    },
+  });
   const data: UpdateUserRequest = await c.req.json<UpdateUserRequest>();
 
   
@@ -86,7 +94,7 @@ export const updateUser = async (c: Context & { user: User }) => {
 
     
     const isValidPassword = await argon2.verify(
-      currentUser.password,
+      currentUser?.password  || "",
       data.current_password
     );
     if (!isValidPassword) {

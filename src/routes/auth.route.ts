@@ -9,6 +9,6 @@ auth.post('login', login as never);
 auth.use(authMiddleware as never)
 auth.get('/logout', logout as never);
 auth.get('/session', session as never);
-auth.put('/update', updateUser as never)
+auth.put('/user/update', updateUser as never)
 
 export default auth;

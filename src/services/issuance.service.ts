@@ -907,7 +907,7 @@ export class IssuanceService {
     }
 
     const inventory = await inventoryService.getInventoryById(inventoryId);
-
+    console.log(inventory?.quantitySummary.totalQuantity);
     if (
       inventory?.quantitySummary?.totalQuantity &&
       inventory.quantitySummary.totalQuantity <= 5
@@ -930,6 +930,7 @@ export class IssuanceService {
       },
       select: {
         issuanceId: true,
+        inventoryId: true
       },
     });
 
@@ -952,7 +953,7 @@ export class IssuanceService {
     }
 
     const inventory = await inventoryService.getInventoryById(inventoryId);
-
+    console.log("Inventory ID", issuance.inventoryId);
     if (
       inventory?.quantitySummary?.totalQuantity &&
       inventory.quantitySummary.totalQuantity <= 5
