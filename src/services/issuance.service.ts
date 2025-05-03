@@ -850,7 +850,8 @@ export class IssuanceService {
         const receiptData = await receiptService.getCurrentReceipt(
           receipt.id,
           item.inventoryId || "",
-          item.id
+          item.id,
+          item.size || ""
         );
 
         if (receiptData?.data[0].issued_quantity <= 0 && fetch === "all") {
