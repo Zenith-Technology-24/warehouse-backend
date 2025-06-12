@@ -1,4 +1,4 @@
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 import { EndUser } from "@prisma/client";
 
 export class EndUserService {

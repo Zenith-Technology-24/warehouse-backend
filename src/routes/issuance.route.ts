@@ -1,6 +1,6 @@
-import { archiveIssuance, createIssuance, exportIssuance, fetchReceiptsForIssuance, getInventoryIssuance, getIssuanceById, getIssuances, pendingAllIssuance, pendingIssuance, unArchiveIssuance, updateIssuance, withdrawAllIssuance, withdrawIssuance } from "@/handler/issuance.handler";
-import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
-import { authMiddleware } from "@/middleware/auth.middleware";
+import { archiveIssuance, createIssuance, exportIssuance, fetchReceiptsForIssuance, getInventoryIssuance, getIssuanceById, getIssuances, pendingAllIssuance, pendingIssuance, unArchiveIssuance, updateIssuance, withdrawAllIssuance, withdrawIssuance } from "../handler/issuance.handler";
+import { activityLogMiddleware } from "../middleware/activity-log.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const issuance = new OpenAPIHono();

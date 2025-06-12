@@ -1,5 +1,5 @@
-import { login, logout, session, updateUser } from "@/handler/auth.handler";
-import { authMiddleware } from "@/middleware/auth.middleware";
+import { login, logout, session, updateUser } from "../handler/auth.handler";
+import { authMiddleware } from "../middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const auth = new OpenAPIHono();

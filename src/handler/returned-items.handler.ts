@@ -1,4 +1,4 @@
-import { ReturnedItemsService } from '@/services/returned-items.service';
+import { ReturnedItemsService } from '../services/returned-items.service';
 import { User } from '@prisma/client';
 import { Context } from "hono";
 

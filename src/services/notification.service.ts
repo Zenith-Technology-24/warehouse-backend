@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 import moment from "moment";
 
 export interface ReturnedItemsResponseType {

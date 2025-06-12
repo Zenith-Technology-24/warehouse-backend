@@ -1,7 +1,7 @@
-import { createUser, getUserById, getUsers, updateUser } from "@/handler/user.handler";
-import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
-import { authMiddleware } from "@/middleware/auth.middleware";
-import { roleMiddleware } from "@/middleware/role.middleware";
+import { createUser, getUserById, getUsers, updateUser } from "../handler/user.handler";
+import { activityLogMiddleware } from "../middleware/activity-log.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { roleMiddleware } from "../middleware/role.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const user = new OpenAPIHono();

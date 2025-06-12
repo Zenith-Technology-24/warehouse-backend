@@ -12,9 +12,14 @@
     "jsxImportSource": "hono/jsx",
     "rootDir": ".",
     "baseUrl": ".",
+    "outDir": "./js",
     "paths": {
-      "@/*": ["src/*"]
+      "../*": ["src/*"]
     }
+  },
+  "tsc-alias": {
+    "resolveFullPaths": true,
+    "verbose": false
   },
   "include": ["src/**/*"],
 }

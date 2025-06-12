@@ -1,4 +1,4 @@
-import { EndUserService } from "@/services/end-user.service";
+import { EndUserService } from "../services/end-user.service";
 import { Context } from "hono";
 
 const endUserService = new EndUserService();

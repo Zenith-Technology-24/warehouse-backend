@@ -1,6 +1,6 @@
 import { User, type Token } from "@prisma/client";
-import prisma from "@/generic/prisma";
-import { jwtDecoded } from "@/utils/auth";
+import prisma from "../generic/prisma";
+import { jwtDecoded } from "../utils/auth";
 
 export class AuthService {
   async createToken(token: string): Promise<Token> {

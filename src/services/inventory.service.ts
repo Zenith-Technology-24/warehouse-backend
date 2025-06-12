@@ -1,5 +1,5 @@
 import { Inventory, ProductStatus, SizeType } from "@prisma/client";
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 
 import {
   determineStockLevel,
@@ -16,7 +16,7 @@ import {
   calculateAvailableQuantities,
   generateSizeDetailsGroups,
   processInventoryItems2,
-} from "@/utils/inventoryHelper";
+} from "../utils/inventoryHelper";
 
 interface CreateInventoryDto {
   name: string;

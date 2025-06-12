@@ -1,5 +1,5 @@
-import { AuthService } from "@/services/auth.service";
-import { jwtDecoded, jwtVerify } from "@/utils/auth";
+import { AuthService } from "../services/auth.service";
+import { jwtDecoded, jwtVerify } from "../utils/auth";
 import { User } from "@prisma/client";
 import { Context, Next } from "hono";
 

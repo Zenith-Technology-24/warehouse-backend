@@ -1,4 +1,4 @@
-import { DashboardService } from "@/services/dashboard.service";
+import { DashboardService } from "../services/dashboard.service";
 import { Context } from "hono";
 
 const dashboardService = new DashboardService();

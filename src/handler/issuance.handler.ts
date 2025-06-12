@@ -1,5 +1,5 @@
-import { InventoryService } from "@/services/inventory.service";
-import { IssuanceService } from "@/services/issuance.service";
+import { InventoryService } from "../services/inventory.service";
+import { IssuanceService } from "../services/issuance.service";
 import { User } from "@prisma/client";
 import { Context } from "hono";
 

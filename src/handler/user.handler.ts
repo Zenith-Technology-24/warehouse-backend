@@ -1,4 +1,4 @@
-import { UserService } from "@/services/user.service";
+import { UserService } from "../services/user.service";
 import { Prisma } from "@prisma/client";
 import { Context } from "hono";
 

@@ -1,9 +1,9 @@
 import { sign, verify, decode } from "hono/jwt";
 import type { Role, User } from "@prisma/client";
 import type { SignatureKey } from "hono/utils/jwt/jws";
-import { AuthService } from "@/services/auth.service";
+import { AuthService } from "../services/auth.service";
 import type { JWTPayload } from "hono/utils/jwt/types";
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 
 const authService = new AuthService();
 

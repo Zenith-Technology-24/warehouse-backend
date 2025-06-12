@@ -1,4 +1,4 @@
-import { InventoryService } from "@/services/inventory.service";
+import { InventoryService } from "../services/inventory.service";
 import { Context } from "hono";
 
 const inventoryService = new InventoryService();

@@ -1,4 +1,4 @@
-import { ReceiptService } from "@/services/receipt.service";
+import { ReceiptService } from "../services/receipt.service";
 import { User } from "@prisma/client";
 import { Context } from "hono";
 

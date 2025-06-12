@@ -11,7 +11,7 @@ import receipt from "./receipt.route";
 import activityLog from "./activity-log.route";
 import returnedItems from "./returned-items.route";
 import notification from "./notification.route";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationService } from "../services/notification.service";
 import dashboard from "./dashboard.route";
 
 const notificationService = new NotificationService();

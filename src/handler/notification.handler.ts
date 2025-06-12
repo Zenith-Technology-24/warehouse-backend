@@ -1,4 +1,4 @@
-import { NotificationService } from '@/services/notification.service';
+import { NotificationService } from '../services/notification.service';
 import { Context } from "hono";
 
 const notificationService = new NotificationService();

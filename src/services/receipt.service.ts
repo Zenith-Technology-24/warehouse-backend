@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Receipt, User } from "@prisma/client";
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 
 interface InventoryPayload {
   id?: string;
@@ -781,7 +782,7 @@ export class ReceiptService {
       );
 
       const formattedReceipts = newReceipts.map((receipt) => {
-        const formattedInventories = receipt.inventory.map((inv) => {
+        const formattedInventories = receipt.inventory.map((inv: any) => {
           if (inv.item) {
             const formattedItem = {
               ...inv.item,
@@ -803,7 +804,9 @@ export class ReceiptService {
         });
 
         const totalAmount = receipt.inventory.reduce((sum, inv) => {
+          //@ts-expect-error malformed data
           if (inv.item?.amount) {
+            //@ts-expect-error malformed data
             return sum + parseFloat(inv.item.amount);
           }
           return sum;

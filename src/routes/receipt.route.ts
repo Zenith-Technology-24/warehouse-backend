@@ -1,6 +1,6 @@
-import { archiveReceipt, createReceipts, deleteReceipt, exportReceipt, getReceiptById, getReceipts, unArchiveReceipt, updateReceipt } from "@/handler/receipt.handler";
-import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
-import { authMiddleware } from "@/middleware/auth.middleware";
+import { archiveReceipt, createReceipts, deleteReceipt, exportReceipt, getReceiptById, getReceipts, unArchiveReceipt, updateReceipt } from "../handler/receipt.handler";
+import { activityLogMiddleware } from "../middleware/activity-log.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const receipt = new OpenAPIHono();

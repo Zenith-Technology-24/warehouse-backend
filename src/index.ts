@@ -1,11 +1,9 @@
 import { serve } from "@hono/node-server";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
-import { swaggerUI } from "@hono/swagger-ui";
 import { routes } from "./routes/route";
-import { getRandomMessage } from "./generic/egg";
 import { cors } from "hono/cors";
 const app = new OpenAPIHono();
-const api = new OpenAPIHono(); 
+const api = new OpenAPIHono();
 
 app.use(
   "/api/*",
@@ -42,27 +40,6 @@ api.openapi(
 
 app.route("/api", api);
 
-app.get(
-  "/docs",
-  swaggerUI({
-    url: "/doc"
-  })
-);
-
-app.doc("/doc", {
-  info: {
-    title: "Gil Swaggerboy - OpenOten 3.0 Jak Roberto API",
-    version: "v1",
-    description: getRandomMessage(),
-  },
-  openapi: "3.1.0",
-});
-
-app.openAPIRegistry.registerComponent("securitySchemes", "Bearer", {
-  type: "http",
-  scheme: "bearer",
-});
-
 routes(app);
 
 const port = Number(process.env.PORT) || 3000;
@@ -70,5 +47,7 @@ console.log(`Server is running on http://localhost:${port}`);
 
 serve({
   fetch: app.fetch,
-  port,
+  port: port,
 });
+
+export default app;

@@ -1,4 +1,27 @@
 services:
+  app:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      ports:
+        - "${PORT:-3000}:${PORT:-3000}"
+      environment:
+        - NODE_ENV=${NODE_ENV:-production}
+        - PORT=${PORT:-3000}
+        - DB_URL=${DB_URL}
+        - PG_DB=${PG_DB}
+        - PG_USER=${PG_USER}
+        - PG_PASSWORD=${PG_PASSWORD}
+        - DATABASE_URL=${DATABASE_URL}
+        - DB_HOST=${DB_HOST}
+        - DB_PORT=${DB_PORT}
+        - JWT_SECRET=${JWT_SECRET}
+        - SMTP_HOST=${SMTP_HOST}
+        - SMTP_PORT=${SMTP_PORT}
+        - APP_URL=${APP_URL}
+      depends_on:
+        - db
+      restart: unless-stopped
   db:
     image: postgres
     container_name: warehouse_db

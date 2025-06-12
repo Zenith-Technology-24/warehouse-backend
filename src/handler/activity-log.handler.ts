@@ -1,4 +1,4 @@
-import { ActivityLogService } from "@/services/activity-log.service";
+import { ActivityLogService } from "../services/activity-log.service";
 import { User } from "@prisma/client";
 import { Context } from "hono";
 

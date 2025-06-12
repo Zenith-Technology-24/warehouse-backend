@@ -1,5 +1,6 @@
-import { Issuance, Prisma, ProductStatus, User } from "@prisma/client";
-import prisma from "@/generic/prisma";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Prisma, ProductStatus, User } from "@prisma/client";
+import prisma from "../generic/prisma";
 import { InventoryService } from "./inventory.service";
 import { ReceiptService } from "./receipt.service";
 import { NotificationService } from "./notification.service";
@@ -158,10 +159,11 @@ export class IssuanceService {
                         `Size ${requestedSize} not found in inventory ${currentInventory.name}`
                       );
                     }
-
+                    //@ts-expect-error malformed data
                     const sizeData = sizeQuantities[requestedSize].available;
                     if (Number(inventoryItem.quantity) > Number(sizeData)) {
                       throw new Error(
+                        //@ts-expect-error malformed data
                         `Quantity ${inventoryItem.quantity} exceeds available quantity ${sizeQuantities[requestedSize].available} of ${currentInventory.name} for size ${inventoryItem.size}`
                       );
                     }
@@ -232,6 +234,7 @@ export class IssuanceService {
       });
 
       return issuance;
+      
     } catch (error: any) {
       throw new Error(`Failed to create issuance: ${error.message}`);
     }
@@ -390,10 +393,11 @@ export class IssuanceService {
                           `Size ${requestedSize} not found in inventory ${currentInventory.name}`
                         );
                       }
-
+                      //@ts-expect-error malformed data
                       const sizeData = sizeQuantities[requestedSize].available;
                       if (Number(inventoryItem.quantity) > Number(sizeData)) {
                         throw new Error(
+                          //@ts-expect-error malformed data
                           `Quantity ${inventoryItem.quantity} exceeds available quantity ${sizeQuantities[requestedSize].available} of ${currentInventory.name} for size ${inventoryItem.size}`
                         );
                       }
@@ -853,11 +857,11 @@ export class IssuanceService {
           item.id,
           item.size || ""
         );
-
+        //@ts-expect-error malformed data
         if (receiptData?.data[0].issued_quantity <= 0 && fetch === "all") {
           continue;
         }
-
+        //@ts-expect-error malformed data
         if (receiptData?.data[0].is_consumed && fetch === "some") {
           continue;
         }

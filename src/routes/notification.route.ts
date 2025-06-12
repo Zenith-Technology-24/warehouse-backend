@@ -1,6 +1,6 @@
-import { deleteAllNotification, deleteNotification, getNotifications, readNotification } from "@/handler/notification.handler";
-import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
-import { authMiddleware } from "@/middleware/auth.middleware";
+import { deleteAllNotification, deleteNotification, getNotifications, readNotification } from "../handler/notification.handler";
+import { activityLogMiddleware } from "../middleware/activity-log.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const notification = new OpenAPIHono();

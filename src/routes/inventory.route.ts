@@ -9,9 +9,9 @@ import {
   getItemTypes,
   unarchiveInventory,
   updateInventory,
-} from "@/handler/inventory.handler";
-import { activityLogMiddleware } from "@/middleware/activity-log.middleware";
-import { authMiddleware } from "@/middleware/auth.middleware";
+} from "../handler/inventory.handler";
+import { activityLogMiddleware } from "../middleware/activity-log.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const inventory = new OpenAPIHono();

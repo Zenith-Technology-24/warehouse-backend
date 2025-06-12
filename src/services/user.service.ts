@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import prisma from "@/generic/prisma";
-import { UserGetUsersResponse } from "@/schema/user.schema";
+import prisma from "../generic/prisma";
+import { UserGetUsersResponse } from "../schema/user.schema";
 import { Role, User } from "@prisma/client";
 import argon2 from "argon2";
 

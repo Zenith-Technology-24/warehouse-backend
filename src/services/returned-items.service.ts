@@ -1,7 +1,7 @@
 import { ReturnedItemStatus, User } from '@prisma/client';
-import { createReturnedItems } from './../handler/returned-items.handler';
+import { createReturnedItems } from '../handler/returned-items.handler';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 
 export interface ReturnedItemsResponseType {
     data: any[];

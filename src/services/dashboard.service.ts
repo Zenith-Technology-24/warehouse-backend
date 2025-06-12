@@ -1,4 +1,4 @@
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 import { ProductStatus } from "@prisma/client";
 
 export interface DashboardSummary {

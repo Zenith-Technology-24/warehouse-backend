@@ -1,10 +1,10 @@
-import prisma from "@/generic/prisma";
-import type { LoginRequestType } from "@/schema/login.schema";
+import prisma from "../generic/prisma";
+import type { LoginRequestType } from "../schema/login.schema";
 import type { Context } from "hono";
 import argon2 from "argon2";
-import { jwtSign } from "@/utils/auth";
+import { jwtSign } from "../utils/auth";
 import type { User } from "@prisma/client";
-import { AuthService } from "@/services/auth.service";
+import { AuthService } from "../services/auth.service";
 
 interface UpdateUserRequest {
   username?: string;
@@ -112,7 +112,7 @@ export const updateUser = async (c: Context & { user: User }) => {
 
   try {
     const updatedUser = await prisma.user.update({
-      where: { id: currentUser.id },
+      where: { id: currentUser?.id },
       data: {
         username: data.username,
         password: data.password,

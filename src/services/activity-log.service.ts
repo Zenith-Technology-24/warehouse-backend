@@ -1,4 +1,4 @@
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 import { ActivityLog, User } from "@prisma/client";
 
 interface CreateActivityLogDto {

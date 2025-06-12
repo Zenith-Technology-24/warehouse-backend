@@ -1,4 +1,4 @@
-import prisma from "@/generic/prisma";
+import prisma from "../generic/prisma";
 
 export const determineStockLevel = (quantity: number): string => {
   if (quantity <= 0) return "Out of Stock";
@@ -8,6 +8,7 @@ export const determineStockLevel = (quantity: number): string => {
 };
 
 export const initializeSizeQuantities = (size: string) => {
+  console.log(size);
   return {
     pending: 0,
     available: 0,

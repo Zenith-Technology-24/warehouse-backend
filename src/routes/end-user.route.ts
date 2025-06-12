@@ -1,4 +1,4 @@
-import { getEndUsers } from "@/handler/end-user.handler";
+import { getEndUsers } from "../handler/end-user.handler";
 import { OpenAPIHono } from "@hono/zod-openapi";
 
 const endUser = new OpenAPIHono();
